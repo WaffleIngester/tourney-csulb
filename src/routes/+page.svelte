@@ -13,14 +13,12 @@
 
   const requiredColumns: RequiredColumn[] = [
     { label: "pID", aliases: ["pid", "playerid"] },
-    { label: "Player Name", aliases: ["playername"] },
+    { label: "Player", aliases: ["player", "playername"] },
     { label: "PlayFab", aliases: ["playfab", "playfabid"] },
     { label: "SquadID", aliases: ["squadid"] },
     { label: "TeamID", aliases: ["teamid"] },
     { label: "Kills", aliases: ["kills"] },
-    { label: "Place", aliases: ["place"] },
-    { label: "Points", aliases: ["points"] },
-    { label: "TeamPts", aliases: ["teampts", "teampoints"] }
+    { label: "Placement", aliases: ["placement", "place"] }
   ];
 
   let gamemode = $state("Solos");
