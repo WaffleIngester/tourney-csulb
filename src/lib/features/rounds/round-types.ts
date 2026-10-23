@@ -14,9 +14,10 @@ export type RoundPlayer = {
 
 // minimal representation of a "round" as stored by the program.
 export type Round = {
-    id: string; // identifier; maybe-used
+    id: number; // identifier; maybe-used
+    label: string;  // label given to this round (although "unsued")
 
     configID: number; // config id# --- must **always** be a valid index to the main program's config-array. 
 
-    readonly players: RoundPlayer[]; // loaded player data from a tsv import
+    players: RoundPlayer[]; // loaded players for this round. plz no change once set!!
 };

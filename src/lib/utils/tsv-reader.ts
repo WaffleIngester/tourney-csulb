@@ -1,10 +1,4 @@
-// Error created when validating Tsv-related data.
-export class TsvValidationError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "TsvValidationError";
-    }
-}
+import { TsvValidationError } from "./tsv-validator";
 
 // represents a row of TSV data. **May have duplicate entries**
 export class TsvRow {
@@ -17,7 +11,7 @@ export class TsvRow {
         const index = this.columns.indexOf(column);
 
         if (index === -1) {
-            return undefined
+            return undefined;
         }
         return this.values[index];
     }

@@ -1,24 +1,32 @@
 <script lang="ts">
+  // css
   import "./page.css";
 
-  type Round = {
-    id: number;
-    label: string;
-  };
+  // round imports
+  import type { Round } from "#lib/features/rounds/round-types.ts";
+  
+  // cfg imports
+  import type { Config } from "#lib/features/configs/config-types.ts";
 
-  type RequiredColumn = {
-    label: string;
-    aliases: string[];
-  };
+  // tsv imports
+  import { TextToTSV } from "#lib/utils/tsv-reader.ts";
+  import { TsvRow } from "#lib/utils/tsv-reader.ts";
 
+  import { ColumnType, getTsvError, TsvValidationError } from "#lib/utils/tsv-validator.ts";
+  import type { RequiredColumn } from "#lib/utils/tsv-validator.ts";
+
+
+  // columns required when validating an imported TSV.
+  // there are **no** aliases. you're either right, or you're wrong.
+  //const requiredColumns: string[] = [ "pID","Player","PlayfabID","SquadID","TeamID","Kills","Placement"];
   const requiredColumns: RequiredColumn[] = [
-    { label: "pID", aliases: ["pid", "playerid"] },
-    { label: "Player", aliases: ["player", "playername"] },
-    { label: "PlayFab", aliases: ["playfab", "playfabid"] },
-    { label: "SquadID", aliases: ["squadid"] },
-    { label: "TeamID", aliases: ["teamid"] },
-    { label: "Kills", aliases: ["kills"] },
-    { label: "Placement", aliases: ["placement", "place"] }
+    { name: "pID", type: ColumnType.Integer },
+    { name: "Player", type: ColumnType.String },
+    { name: "PlayfabID", type: ColumnType.String },
+    { name: "SquadID", type: ColumnType.Integer },
+    { name: "TeamID", type: ColumnType.Integer },
+    { name: "Kills", type: ColumnType.Integer },
+    { name: "Placement", type: ColumnType.Integer }
   ];
 
   let gamemode = $state("Solos");
@@ -29,7 +37,7 @@
   let pasteDialog = $state<HTMLDialogElement | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
 
-  let rounds = $state<Round[]>([{ id: 1, label: "Round 1" }]);
+  let rounds = $state<Round[]>([{ id: 1, label: "Round 1", configID: 0, players: []}]);
   let activeRoundId = $state<number | null>(1);
   let nextRoundNumber = $state(2);
 
@@ -46,7 +54,9 @@
 
     const round: Round = {
       id: nextRoundNumber,
-      label: `Round ${nextRoundNumber}`
+      label: `Round ${nextRoundNumber}`,
+      configID: 0,
+      players: []
     };
 
     rounds = [...rounds, round];
@@ -79,7 +89,7 @@
     status = "";
     pastedOutput = "";
     pasteError = "";
-    rounds = [{ id: 1, label: "Round 1" }];
+    rounds = [{ id: 1, label: "Round 1", configID: 0, players: []}];
     activeRoundId = 1;
     nextRoundNumber = 2;
 
@@ -98,55 +108,18 @@
   function clearPasteError() {
     pasteError = "";
   }
-
-  function normalizeHeader(value: string) {
-    return value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  }
-
+ 
   function submitPaste(event: SubmitEvent) {
     event.preventDefault();
     pasteError = "";
 
-    const firstLine =
-      pastedOutput
-        .replace(/^\uFEFF/, "")
-        .split(/\r?\n/)
-        .find((line) => line.trim().length > 0) ?? "";
-
-    if (!firstLine) {
-      pasteError = "ERROR: Paste data into the box before submitting.";
-      return;
-    }
-
-    const headerCells = firstLine
-      .split(/[\t,|;]+/)
-      .map(normalizeHeader)
-      .filter(Boolean);
-
-    const normalizedLine = normalizeHeader(firstLine);
-    const hasSeparatedHeaders = headerCells.length > 1;
-
-    const missingColumns = requiredColumns.filter((column) => {
-      return !column.aliases.some((alias) => {
-        const normalizedAlias = normalizeHeader(alias);
-
-        return hasSeparatedHeaders
-          ? headerCells.includes(normalizedAlias)
-          : normalizedLine.includes(normalizedAlias);
-      });
-    });
-
-    if (missingColumns.length > 0) {
-      if (missingColumns.length === 1) {
-        pasteError = `ERROR: Missing column '${missingColumns[0].label}'.`;
-      } else {
-        const missingNames = missingColumns
-          .map((column) => `'${column.label}'`)
-          .join(", ");
-
-        pasteError = `ERROR: Missing columns ${missingNames}.`;
-      }
-
+    // this function already normalizes the input, more-or-less.
+    const roundData: TsvRow[] = TextToTSV(pastedOutput);
+    
+    // any errors? --> display and **EXIT EARLY**
+    const validationError = getTsvError(roundData, requiredColumns);
+    if (validationError !== null) {
+      pasteError = validationError.message;
       return;
     }
 
@@ -154,6 +127,7 @@
     pastedOutput = "";
     pasteDialog?.close();
   }
+ 
 </script>
 
 <svelte:head>
