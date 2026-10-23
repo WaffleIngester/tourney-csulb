@@ -4,6 +4,7 @@
 
   // round imports
   import type { Round } from "#lib/features/rounds/round-types.ts";
+  import { TsvToRounds } from "#lib/features/rounds/round-actions.ts";
   
   // cfg imports
   import type { Config } from "#lib/features/configs/config-types.ts";
@@ -33,17 +34,18 @@
   ];
 
   let gamemode = $state(Gamemode.Solos);
-  let status = $state("");
+  let status = $state(""); // why does this exist?
   let pastedOutput = $state("");
   let pasteError = $state("");
   let resetDialog = $state<HTMLDialogElement | null>(null);
   let pasteDialog = $state<HTMLDialogElement | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
 
-  let rounds = $state<Round[]>([{ id: 1, label: "Round 1", configID: 0, players: []}]);
-  let activeRoundId = $state<number | null>(1);
-  let nextRoundNumber = $state(2);
+  let rounds = $state<Round[]>([{ id: 0, label: "Round 1", configID: 0, players: []}]);
+  let activeRoundIndex = $state<number | null>(0);
+  let nextRoundNumber = $state(1);
 
+  // todo: need to actually import the file. fill figure out later I suppose.
   function handleFileChange(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
@@ -52,7 +54,7 @@
 
   function addRound() {
     if (rounds.length === 0) {
-      nextRoundNumber = 1;
+      nextRoundNumber = 0;
     }
 
     const round: Round = {
@@ -63,19 +65,21 @@
     };
 
     rounds = [...rounds, round];
-    activeRoundId = round.id;
+    activeRoundIndex = round.id;
     nextRoundNumber += 1;
   }
 
+
+  // todo: safety popup. make sure player understands they'll be removing the round.
   function removeRound(id: number) {
     rounds = rounds.filter((round) => round.id !== id);
 
-    if (activeRoundId === id) {
-      activeRoundId = rounds.at(-1)?.id ?? null;
+    if (activeRoundIndex === id) {
+      activeRoundIndex = rounds.at(-1)?.id ?? null;
     }
 
     if (rounds.length === 0) {
-      nextRoundNumber = 1;
+      nextRoundNumber = 0;
     }
   }
 
@@ -92,9 +96,9 @@
     status = "";
     pastedOutput = "";
     pasteError = "";
-    rounds = [{ id: 1, label: "Round 1", configID: 0, players: []}];
-    activeRoundId = 1;
-    nextRoundNumber = 2;
+    rounds = [{ id: 0, label: "Round 1", configID: 0, players: []}];
+    activeRoundIndex = 0;
+    nextRoundNumber = 1;
 
     if (fileInput) {
       fileInput.value = "";
@@ -127,6 +131,15 @@
     }
 
     status = "Output pasted. Import processing is not connected yet.";
+
+    if (activeRoundIndex === null) {
+      pasteError = "activeRoundIndex is null. This should be impossible, and yet we're here.";
+      return;
+    }
+    rounds[activeRoundIndex].players = TsvToRounds(roundData);
+
+    console.log(rounds[activeRoundIndex].players);
+
     pastedOutput = "";
     pasteDialog?.close();
   }
@@ -165,12 +178,12 @@
 
     <div class="round-tabs" aria-label="Rounds">
       {#each rounds as round (round.id)}
-        <div class="round-tab" class:active={activeRoundId === round.id}>
+        <div class="round-tab" class:active={activeRoundIndex === round.id}>
           <button
             class="round-select"
             type="button"
-            aria-pressed={activeRoundId === round.id}
-            onclick={() => (activeRoundId = round.id)}
+            aria-pressed={activeRoundIndex === round.id}
+            onclick={() => (activeRoundIndex = round.id)}
           >
             {round.label}
           </button>
@@ -203,7 +216,7 @@
             class="visually-hidden"
             id="player-file"
             type="file"
-            accept=".txt,.csv,.json"
+            accept=".txt,.tsv,.csv,.json"
             aria-label="Choose a /getplayers file"
             onchange={handleFileChange}
           />
