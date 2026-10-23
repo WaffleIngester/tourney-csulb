@@ -15,6 +15,9 @@
   import { ColumnType, getTsvError, TsvValidationError } from "#lib/utils/tsv-validator.ts";
   import type { RequiredColumn } from "#lib/utils/tsv-validator.ts";
 
+  // gamemode
+  import { Gamemode } from "#lib/utils/gamemode.ts";
+
 
   // columns required when validating an imported TSV.
   // there are **no** aliases. you're either right, or you're wrong.
@@ -29,7 +32,7 @@
     { name: "Placement", type: ColumnType.Integer }
   ];
 
-  let gamemode = $state("Solos");
+  let gamemode = $state(Gamemode.Solos);
   let status = $state("");
   let pastedOutput = $state("");
   let pasteError = $state("");
@@ -85,7 +88,7 @@
   }
 
   function resetTournament() {
-    gamemode = "Solos";
+    gamemode = Gamemode.Solos;
     status = "";
     pastedOutput = "";
     pasteError = "";
@@ -142,9 +145,9 @@
       <span>Gamemode:</span>
 
       <select bind:value={gamemode} aria-label="Gamemode">
-        <option>Solos</option>
-        <option>Duos</option>
-        <option>Squads</option>
+        {#each Object.entries(Gamemode) as [key, value]}
+          <option value={value}>{key}</option>
+        {/each}
       </select>
     </label>
 
