@@ -362,6 +362,7 @@ button {
   max-width: none;
   margin: auto;
   padding: 0;
+  position: fixed;
   border: 5px solid var(--brown);
   border-radius: 16px;
   background: var(--cream);
@@ -430,7 +431,7 @@ button {
   max-height: none;
   margin: auto;
   padding: 16px;
-  position: relative;
+  position: fixed;
   overflow: visible;
   border: 5px solid var(--brown);
   border-radius: 18px;
