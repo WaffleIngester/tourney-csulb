@@ -1,7 +1,8 @@
 <script lang="ts">
   // --- TODO ---
+
   // MAIN CONCERN: ** --> Fix RoundIndex <-- **
-  // MAIN PROGRESS: Fix CSS/ Modularlize components. 
+  // MAIN PROGRESS: Fix CSS/ Modularlize components.
 
   // css
   import "./page.css";
@@ -9,24 +10,18 @@
   // round imports
   import type { Round } from "#lib/features/rounds/round-types.ts";
   import { TsvToRoundPlayers } from "#lib/features/rounds/round-actions.ts";
-  
-  // cfg imports
-  import type { Config } from "#lib/features/configs/config-types.ts";
 
   // tsv imports
   import { TextToTSV } from "#lib/utils/tsv-reader.ts";
-  import { TsvRow } from "#lib/utils/tsv-reader.ts";
-
-  import { ColumnType, getTsvError, TsvValidationError } from "#lib/utils/tsv-validator.ts";
+  import type { TsvRow } from "#lib/utils/tsv-reader.ts";
+  import { ColumnType, getTsvError } from "#lib/utils/tsv-validator.ts";
   import type { RequiredColumn } from "#lib/utils/tsv-validator.ts";
 
   // gamemode
   import { Gamemode } from "#lib/utils/gamemode.ts";
 
-
-  // columns required when validating an imported TSV.
-  // there are **no** aliases. you're either right, or you're wrong.
-  //const requiredColumns: string[] = [ "pID","Player","PlayfabID","SquadID","TeamID","Kills","Placement"];
+  // columns required when validating an imported tsv.
+  // there are no aliases. you're either right, or you're wrong.
   const requiredColumns: RequiredColumn[] = [
     { name: "pID", type: ColumnType.Integer },
     { name: "Player", type: ColumnType.String },
@@ -35,7 +30,7 @@
     { name: "TeamID", type: ColumnType.Integer },
     { name: "Kills", type: ColumnType.Integer },
     { name: "Placement", type: ColumnType.Integer }
-  ] as const;
+  ];
 
   // currently-active view being used rn!!
   type ActiveView = "scored" | "unscored" | "import" | "config" | "leaderboard";
@@ -44,90 +39,118 @@
     { id: "scored", label: "View Scored", requiresPlayers: true },
     { id: "unscored", label: "View Unscored", requiresPlayers: true },
     { id: "import", label: "Replace Data", requiresPlayers: false },
-    { id: "config", label: "Edit Scoring Rules", requiresPlayers: false },
-  ] as const;
-
-  const leaderboardOptions = [
-    { id: "export", label: "Export Data", action: console.log(`unimplemented action: export`)}
+    { id: "config", label: "Edit Scoring Rules", requiresPlayers: false }
   ] as const;
 
   let gamemode = $state(Gamemode.Solos);
-  let status = $state(""); // why does this exist?
+  let status = $state("");
   let pastedOutput = $state("");
   let pasteError = $state("");
+
   let resetDialog = $state<HTMLDialogElement | null>(null);
+  let roundWarningDialog = $state<HTMLDialogElement | null>(null);
   let pasteDialog = $state<HTMLDialogElement | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
 
-  let rounds = $state<Round[]>([{ id: 0, label: "Round 1", configID: 0, players: []}]);
-  let activeRoundIndex = $state<number>(0);
-  let nextRoundNumber = $state(1);
+  let rounds = $state<Round[]>([
+    { id: 1, label: "Round 1", configID: 0, players: [] }
+  ]);
 
+  // round ids are unique and are separate from round array positions.
+  let activeRoundId = $state<number | null>(1);
+  let nextRoundId = $state(2);
   let activeView = $state<ActiveView>("import");
 
-  // change the currently-active view to the provided view.
-  function changeActiveView(view: ActiveView) {
-    activeView = view;
-  }
+  let activeRound = $derived(
+    rounds.find((round) => round.id === activeRoundId) ?? null
+  );
 
-  function viewLeaderboard() {
-    changeActiveView("leaderboard");
-    activeRoundIndex = -1;
-  }
+  let activeRoundHasPlayers = $derived(
+    (activeRound?.players.length ?? 0) > 0
+  );
 
-  // determine whether the provided view is the currently-active view.
-  function isActiveView(view: ActiveView) {
-    return activeView == view;
-  }
-
-  // todo: need to actually import the file. fill figure out later I suppose.
-  function handleFileChange(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    status = file ? `Selected: ${file.name}` : "";
+  function selectRound(round: Round) {
+    activeRoundId = round.id;
+    activeView = "import";
+    status = "";
   }
 
   function addRound() {
-    if (rounds.length === 0) {
-      nextRoundNumber = 0;
-    }
-
     const round: Round = {
-      id: nextRoundNumber,
-      label: `Round ${nextRoundNumber}`,
+      id: nextRoundId,
+      label: `Round ${rounds.length + 1}`,
       configID: 0,
       players: []
     };
 
     rounds = [...rounds, round];
-    activeRoundIndex = round.id;
-    nextRoundNumber += 1;
+    activeRoundId = round.id;
+    activeView = "import";
+    nextRoundId += 1;
+    status = "";
   }
 
-
-  // todo: safety popup. make sure player understands they'll be removing the round.
-  function removeRound(id: number) {
-    rounds = rounds.filter((round) => round.id !== id);
-
-    if (activeRoundIndex === id) {
-      const _id = rounds.at(-1)?.id;
-      if (_id === undefined) {
-        throw new Error(`active round id was invalid. got: {_id}.`);
-      }
-      activeRoundIndex = _id;
+  // the last round stays; shift skips the delete confirmation.
+  function removeRound(id: number, event: MouseEvent) {
+    if (rounds.length <= 1) {
+      status = "";
+      roundWarningDialog?.showModal();
+      return;
     }
 
-    if (rounds.length === 0) {
-      nextRoundNumber = 0;
+    if (
+      !event.shiftKey &&
+      !window.confirm("Delete this round and its imported data?")
+    ) {
+      return;
     }
+
+    const removedIndex = rounds.findIndex((round) => round.id === id);
+
+    // keep ids stable and renumber the tabs that remain.
+    const remainingRounds = rounds
+      .filter((round) => round.id !== id)
+      .map((round, index) => ({
+        ...round,
+        label: `Round ${index + 1}`
+      }));
+
+    if (activeRoundId === id) {
+      const nextSelectedIndex = Math.min(
+        removedIndex,
+        remainingRounds.length - 1
+      );
+      activeRoundId = remainingRounds[nextSelectedIndex]?.id ?? null;
+      activeView = "import";
+    }
+
+    rounds = remainingRounds;
+    nextRoundId = Math.max(...remainingRounds.map((round) => round.id)) + 1;
+    status = "";
+  }
+
+  function viewLeaderboard() {
+    activeRoundId = null;
+    activeView = "leaderboard";
+    status = "";
+  }
+
+  function changeActiveView(view: ActiveView) {
+    if (
+      (view === "scored" || view === "unscored") &&
+      !activeRoundHasPlayers
+    ) {
+      activeView = "import";
+      status = "Import player data for this round first.";
+      return;
+    }
+
+    activeView = view;
+    status = "";
   }
 
   function openResetDialog() {
     resetDialog?.showModal();
-  }
-
-  function closeResetDialog() {
-    resetDialog?.close();
   }
 
   function resetTournament() {
@@ -135,9 +158,9 @@
     status = "";
     pastedOutput = "";
     pasteError = "";
-    rounds = [{ id: 0, label: "Round 1", configID: 0, players: []}];
-    activeRoundIndex = 0;
-    nextRoundNumber = 1;
+    rounds = [{ id: 1, label: "Round 1", configID: 0, players: [] }];
+    activeRoundId = 1;
+    nextRoundId = 2;
     activeView = "import";
 
     if (fileInput) {
@@ -152,39 +175,57 @@
     pasteDialog?.showModal();
   }
 
-  function clearPasteError() {
-    pasteError = "";
-  }
- 
   function submitPaste(event: SubmitEvent) {
     event.preventDefault();
     pasteError = "";
 
-    // this function already normalizes the input, more-or-less.
-    const roundData: TsvRow[] = TextToTSV(pastedOutput);
-    
-    // any errors? --> display and **EXIT EARLY**
+    if (!activeRound) {
+      pasteError = "Choose a round before importing player data.";
+      return;
+    }
+
+    if (!pastedOutput.trim()) {
+      pasteError = "Paste the /getplayers output first.";
+      return;
+    }
+
+    let roundData: TsvRow[];
+
+    try {
+      roundData = TextToTSV(pastedOutput);
+    } catch {
+      pasteError = "The pasted data could not be read. Check the TSV format.";
+      return;
+    }
+
     const validationError = getTsvError(roundData, requiredColumns);
-    if (validationError !== null) {
+
+    if (validationError) {
       pasteError = validationError.message;
       return;
     }
 
-    status = "Output pasted. Import processing is not connected yet.";
+    const players = TsvToRoundPlayers(roundData);
 
-    if (activeRoundIndex === null) {
-      pasteError = "activeRoundIndex is null. This should be impossible, and yet we're here.";
-      return;
-    }
-    rounds[activeRoundIndex].players = TsvToRoundPlayers(roundData);
-    activeView = "scored";
-
-    console.log(rounds[activeRoundIndex].players);
+    rounds = rounds.map((round) =>
+      round.id === activeRound.id ? { ...round, players } : round
+    );
 
     pastedOutput = "";
+    status = `Imported ${players.length} players into ${activeRound.label}.`;
+    activeView = "scored";
     pasteDialog?.close();
   }
- 
+
+  // file selection reports the name; parsing can be connected later.
+  function handleFileChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+
+    status = file
+      ? `Selected: ${file.name}. File importing is not connected yet.`
+      : "";
+  }
 </script>
 
 <svelte:head>
@@ -197,7 +238,6 @@
   <div class="topbar-controls">
     <label class="gamemode-control">
       <span>Gamemode:</span>
-
       <select bind:value={gamemode} aria-label="Gamemode">
         {#each Object.entries(Gamemode) as [key, value]}
           <option value={value}>{key}</option>
@@ -213,18 +253,18 @@
 
 <main class="page-shell">
   <nav class="round-navigation" aria-label="Tournament rounds">
-    <button class="button" type="button" onclick={addRound}>
+    <button class="button add-round" type="button" onclick={addRound}>
       Add round
     </button>
 
     <div class="round-tabs" aria-label="Rounds">
       {#each rounds as round (round.id)}
-        <div class="round-tab" class:active={activeRoundIndex === round.id}>
+        <div class="round-tab" class:active={activeRoundId === round.id}>
           <button
             class="round-select"
             type="button"
-            aria-pressed={activeRoundIndex === round.id}
-            onclick={() => (activeRoundIndex = round.id)}
+            aria-pressed={activeRoundId === round.id}
+            onclick={() => selectRound(round)}
           >
             {round.label}
           </button>
@@ -232,8 +272,9 @@
           <button
             class="close-round"
             type="button"
-            aria-label={`Remove ${round.label}`}
-            onclick={() => removeRound(round.id)}
+            aria-label={`Remove ${round.label}. Hold Shift to skip confirmation.`}
+            title="Hold Shift while clicking to skip confirmation"
+            onclick={(event) => removeRound(round.id, event)}
           >
             ×
           </button>
@@ -241,112 +282,124 @@
       {/each}
     </div>
 
-    <button class="button leaderboard" type="button" onclick={() => changeActiveView("leaderboard")}>
+    <button
+      class="button leaderboard-button"
+      type="button"
+      onclick={viewLeaderboard}
+    >
       Leaderboard
     </button>
   </nav>
 
   <div class="content-layout">
-    {#if activeView === "scored"}
-      <section class="scored-panel">
-        <p>scored panel.</p>
-      </section>
-    {:else if activeView === "unscored"}
-      <section class="unscored-panel">
-        <p>unscored panel.</p>
-      </section>
-    {:else if activeView === "import"}
-      <section class="import-panel" aria-label="Import player data">
-        <div class="drop-area">
-          <div class="import-content">
-            <p class="import-title">Import the /getplayers file</p>
+    <section class="main-panel">
+      {#if activeView === "import"}
+        <div class="import-content">
+          <div class="drop-area">
+            <div>
+              <h1>Import the /getplayers file</h1>
 
-            <input
-              bind:this={fileInput}
-              class="visually-hidden"
-              id="player-file"
-              type="file"
-              accept=".txt,.tsv,.csv,.json"
-              aria-label="Choose a /getplayers file"
-              onchange={handleFileChange}
-            />
+              <input
+                bind:this={fileInput}
+                class="visually-hidden"
+                id="player-file"
+                type="file"
+                accept=".txt,.csv,.tsv"
+                aria-label="Choose a /getplayers file"
+                onchange={handleFileChange}
+              />
+              <label class="button choose-file" for="player-file">
+                Choose File
+              </label>
 
-            <label class="button choose-file" for="player-file">
-              Choose File
-            </label>
+              <p class="file-status" role="status">{status}</p>
 
-            <p class="file-status" role="status" aria-live="polite">
-              {status}
-            </p>
-
-            <button
-              class="paste-button"
-              type="button"
-              onclick={openPasteDialog}
-            >
-              Paste the output instead
-            </button>
+              <button class="paste-button" type="button" onclick={openPasteDialog}>
+                Paste the output instead
+              </button>
+            </div>
           </div>
         </div>
-      </section>
-    {:else if activeView === "config"}
-      <section class="config-panel">
-        <p>config panel</p>
-      </section>
-    {:else if activeView === "leaderboard"}
-      <section class="leaderboard-panel">
-        <p>leaderboard panel</p>
-      </section>
-    {:else}
-      <section>
-        <p>Unimplemented section {activeView}...</p>
-      </section>
-    {/if}
+      {:else if activeView === "scored"}
+        <section class="scored-panel">
+          <p>scored panel</p>
+        </section>
+      {:else if activeView === "unscored"}
+        <section class="unscored-panel">
+          <p>unscored panel</p>
+        </section>
+      {:else if activeView === "config"}
+        <section class="config-panel">
+          <p>config panel</p>
+        </section>
+      {:else}
+        <section class="leaderboard-panel">
+          <p>leaderboard panel</p>
+        </section>
+      {/if}
+    </section>
 
-    {#if activeView !== "leaderboard"}
     <aside class="options-panel" aria-labelledby="options-title">
-      <h1 id="options-title">View Options</h1>
-      {#each viewOptions as option (option.id)}
-        <button class="button option" type="button" class:selected={activeView === option.id}
-            disabled={option.requiresPlayers && !((rounds[activeRoundIndex].players?.length ?? 0) > 0)}
-            onclick={() => changeActiveView(option.id)}>
-          {option.label}
+      {#if activeView === "leaderboard"}
+        <h2 id="options-title">Leaderboard Actions</h2>
+        <button class="button option" type="button" disabled>
+          Export Data
         </button>
-      {/each}
+      {:else}
+        <h2 id="options-title">Data Options</h2>
+
+        {#each viewOptions as option (option.id)}
+          <button
+            class="button option"
+            class:selected={activeView === option.id}
+            disabled={option.requiresPlayers && !activeRoundHasPlayers}
+            type="button"
+            onclick={() => changeActiveView(option.id)}
+          >
+            {option.label}
+          </button>
+        {/each}
+      {/if}
+
+      {#if status}
+        <p class="status-message" role="status">{status}</p>
+      {/if}
     </aside>
-    {:else}
-    <aside class="options-panel" aria-labelledby="options-title">
-      <h1 id="options-title">Leaderboard Actions</h1>
-      {#each leaderboardOptions as option (option.id)}
-        <button class="button option" type="button" onclick={() => option.action}>
-          {option.label}
-        </button>
-      {/each}
-    </aside>
-    {/if}
   </div>
 </main>
+
+<dialog class="reset-dialog" bind:this={roundWarningDialog}>
+  <div class="reset-dialog-content">
+    <h2>Round required</h2>
+    <p>You must keep at least one round.</p>
+
+    <div class="reset-dialog-actions">
+      <button
+        class="button go-back-button"
+        type="button"
+        onclick={() => roundWarningDialog?.close()}
+      >
+        OK
+      </button>
+    </div>
+  </div>
+</dialog>
 
 <dialog class="reset-dialog" bind:this={resetDialog}>
   <div class="reset-dialog-content">
     <h2>Reset tournament?</h2>
-
-    <p>
-      This deletes <strong>everything.</strong> Are you sure you want to clear
-      all rounds and scoring rules?
-    </p>
+    <p>This clears the tournament rounds and imported player data.</p>
 
     <div class="reset-dialog-actions">
       <button
-        class="reset-dialog-button go-back-button"
+        class="button go-back-button"
         type="button"
-        onclick={closeResetDialog}
+        onclick={() => resetDialog?.close()}
       >
         Go back
       </button>
-
       <button
-        class="reset-dialog-button proceed-button"
+        class="button proceed-button"
         type="button"
         onclick={resetTournament}
       >
@@ -357,43 +410,38 @@
 </dialog>
 
 <dialog class="paste-dialog" bind:this={pasteDialog}>
-  <button
-    class="paste-dialog-close"
-    type="button"
-    aria-label="Close paste dialog"
-    onclick={() => pasteDialog?.close()}
-  >
-    Close
-  </button>
+  <form class="paste-form" onsubmit={submitPaste}>
+    <button
+      class="paste-dialog-close"
+      type="button"
+      aria-label="Close paste dialog"
+      onclick={() => pasteDialog?.close()}
+    >
+      Close
+    </button>
 
-  <form class="paste-dialog-layout" onsubmit={submitPaste}>
-    <div class="paste-textarea-wrap">
-      <textarea
-        id="pasted-output"
-        bind:value={pastedOutput}
-        oninput={clearPasteError}
-        aria-label="Paste the /getplayers output"
-      ></textarea>
+    <div class="paste-dialog-layout">
+      <div class="paste-textarea-wrap">
+        <textarea
+          bind:value={pastedOutput}
+          aria-label="Pasted /getplayers output"
+          placeholder="Paste the /getplayers output here"
+          oninput={() => (pasteError = "")}
+        ></textarea>
+      </div>
 
-      {#if !pastedOutput}
-        <span class="paste-placeholder">Paste data into this box!</span>
-      {/if}
+      <div class="paste-instructions">
+        <p>Paste the output from the /getplayers command.</p>
+        <p>Include the header row so the columns can be checked.</p>
+
+        {#if pasteError}
+          <p class="paste-error" role="alert">{pasteError}</p>
+        {/if}
+
+        <button class="button paste-submit-button" type="submit">
+          Submit
+        </button>
+      </div>
     </div>
-
-    <section class="paste-instructions">
-      <p>
-        Once you’re ready, click submit to process the data you entered!
-      </p>
-
-      <button class="paste-submit-button" type="submit">
-        Submit
-      </button>
-
-      {#if pasteError}
-        <p class="paste-error" role="alert" aria-live="assertive">
-          {pasteError}
-        </p>
-      {/if}
-    </section>
   </form>
 </dialog>
