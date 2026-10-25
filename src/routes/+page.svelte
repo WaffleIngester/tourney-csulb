@@ -1,10 +1,14 @@
 <script lang="ts">
+  // --- TODO ---
+  // MAIN CONCERN: ** --> Fix RoundIndex <-- **
+  // MAIN PROGRESS: Fix CSS/ Modularlize components. 
+
   // css
   import "./page.css";
 
   // round imports
   import type { Round } from "#lib/features/rounds/round-types.ts";
-  import { TsvToRounds } from "#lib/features/rounds/round-actions.ts";
+  import { TsvToRoundPlayers } from "#lib/features/rounds/round-actions.ts";
   
   // cfg imports
   import type { Config } from "#lib/features/configs/config-types.ts";
@@ -31,7 +35,17 @@
     { name: "TeamID", type: ColumnType.Integer },
     { name: "Kills", type: ColumnType.Integer },
     { name: "Placement", type: ColumnType.Integer }
-  ];
+  ] as const;
+
+  // currently-active view being used rn!!
+  type ActiveView = "scored" | "unscored" | "import" | "config" | "leaderboard";
+
+  const viewOptions = [
+    { id: "scored", label: "View Scored", requiresPlayers: true },
+    { id: "unscored", label: "View Unscored", requiresPlayers: true },
+    { id: "import", label: "Replace Data", requiresPlayers: false },
+    { id: "config", label: "Edit Scoring Rules", requiresPlayers: false },
+  ] as const;
 
   let gamemode = $state(Gamemode.Solos);
   let status = $state(""); // why does this exist?
@@ -42,8 +56,20 @@
   let fileInput = $state<HTMLInputElement | null>(null);
 
   let rounds = $state<Round[]>([{ id: 0, label: "Round 1", configID: 0, players: []}]);
-  let activeRoundIndex = $state<number | null>(0);
+  let activeRoundIndex = $state<number>(0);
   let nextRoundNumber = $state(1);
+
+  let activeView = $state<ActiveView>("import");
+
+  // change the currently-active view to the provided view.
+  function changeActiveView(view: ActiveView) {
+    activeView = view;
+  }
+
+  // determine whether the provided view is the currently-active view.
+  function isActiveView(view: ActiveView) {
+    return activeView == view;
+  }
 
   // todo: need to actually import the file. fill figure out later I suppose.
   function handleFileChange(event: Event) {
@@ -75,7 +101,11 @@
     rounds = rounds.filter((round) => round.id !== id);
 
     if (activeRoundIndex === id) {
-      activeRoundIndex = rounds.at(-1)?.id ?? null;
+      const _id = rounds.at(-1)?.id;
+      if (_id === undefined) {
+        throw new Error(`active round id was invalid. got: {_id}.`);
+      }
+      activeRoundIndex = _id;
     }
 
     if (rounds.length === 0) {
@@ -136,7 +166,7 @@
       pasteError = "activeRoundIndex is null. This should be impossible, and yet we're here.";
       return;
     }
-    rounds[activeRoundIndex].players = TsvToRounds(roundData);
+    rounds[activeRoundIndex].players = TsvToRoundPlayers(roundData);
 
     console.log(rounds[activeRoundIndex].players);
 
@@ -200,68 +230,61 @@
       {/each}
     </div>
 
-    <button class="button leaderboard" type="button">
+    <button class="button leaderboard" type="button" onclick={() => changeActiveView("leaderboard")}>
       Leaderboard
     </button>
   </nav>
 
   <div class="content-layout">
-    <section class="import-panel" aria-label="Import player data">
-      <div class="drop-area">
-        <div class="import-content">
-          <p class="import-title">Import the /getplayers file</p>
+    {#if activeView === "import"}
+      <section class="import-panel" aria-label="Import player data">
+        <div class="drop-area">
+          <div class="import-content">
+            <p class="import-title">Import the /getplayers file</p>
 
-          <input
-            bind:this={fileInput}
-            class="visually-hidden"
-            id="player-file"
-            type="file"
-            accept=".txt,.tsv,.csv,.json"
-            aria-label="Choose a /getplayers file"
-            onchange={handleFileChange}
-          />
+            <input
+              bind:this={fileInput}
+              class="visually-hidden"
+              id="player-file"
+              type="file"
+              accept=".txt,.tsv,.csv,.json"
+              aria-label="Choose a /getplayers file"
+              onchange={handleFileChange}
+            />
 
-          <label class="button choose-file" for="player-file">
-            Choose File
-          </label>
+            <label class="button choose-file" for="player-file">
+              Choose File
+            </label>
 
-          <p class="file-status" role="status" aria-live="polite">
-            {status}
-          </p>
+            <p class="file-status" role="status" aria-live="polite">
+              {status}
+            </p>
 
-          <button
-            class="paste-button"
-            type="button"
-            onclick={openPasteDialog}
-          >
-            Paste the output instead
-          </button>
+            <button
+              class="paste-button"
+              type="button"
+              onclick={openPasteDialog}
+            >
+              Paste the output instead
+            </button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    {:else}
+      <section>
+        <p>Unimplemented section {activeView}...</p>
+      </section>
+    {/if}
 
     <aside class="options-panel" aria-labelledby="options-title">
-      <h1 id="options-title">Data Options</h1>
-
-      <button class="button option disabled" type="button" disabled>
-        View Scored
-      </button>
-
-      <button class="button option disabled" type="button" disabled>
-        View Unscored
-      </button>
-
-      <button
-        class="button option selected"
-        type="button"
-        aria-pressed="true"
-      >
-        Replace Data
-      </button>
-
-      <button class="button option" type="button">
-        Edit Scoring Rules
-      </button>
+      <h1 id="options-title">View Options</h1>
+      {#each viewOptions as option (option.id)}
+        <button class="button option" type="button" class:selected={activeView === option.id}
+            disabled={option.requiresPlayers && !((rounds[activeRoundIndex].players?.length ?? 0) > 0)}
+            onclick={() => changeActiveView(option.id)}>
+          {option.label}
+        </button>
+      {/each}
     </aside>
   </div>
 </main>

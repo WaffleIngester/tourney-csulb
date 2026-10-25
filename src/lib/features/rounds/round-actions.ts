@@ -17,7 +17,7 @@ function getRequiredColumn(row: TsvRow, column: string): string {
 // by the time we call this function, we know for a **fact** that the data is valid.
 // if you are calling this function on TsvRow objects which are not up-to-spec... That's a YOU problem.
 // if there are any errors with this function, that's entirely the fault of this function.
-export function TsvToRounds(data: TsvRow[]): RoundPlayer[] {
+export function TsvToRoundPlayers(data: TsvRow[]): RoundPlayer[] {
     const players: RoundPlayer[] = [];
     
     for (const row of data) {

@@ -398,7 +398,7 @@ button {
 }
 
 .option.selected {
-  background: var(--color-surface);
+  background: var(--color-focus);
 }
 
 .option:hover:not(:disabled),
