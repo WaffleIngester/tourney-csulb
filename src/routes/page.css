@@ -293,6 +293,9 @@ button {
   gap: 32px;
 }
 
+.scored-panel,
+.unscored-panel,
+.leaderboard-panel,
 .import-panel,
 .options-panel {
   border: 5px solid var(--color-outline);
@@ -300,6 +303,10 @@ button {
   background: var(--color-surface);
 }
 
+.scored-panel,
+.unscored-panel,
+.leaderboard-panel,
+.config-panel,
 .import-panel {
   min-height: 600px;
   padding: 28px;

@@ -47,6 +47,10 @@
     { id: "config", label: "Edit Scoring Rules", requiresPlayers: false },
   ] as const;
 
+  const leaderboardOptions = [
+    { id: "export", label: "Export Data", action: console.log(`unimplemented action: export`)}
+  ] as const;
+
   let gamemode = $state(Gamemode.Solos);
   let status = $state(""); // why does this exist?
   let pastedOutput = $state("");
@@ -64,6 +68,11 @@
   // change the currently-active view to the provided view.
   function changeActiveView(view: ActiveView) {
     activeView = view;
+  }
+
+  function viewLeaderboard() {
+    changeActiveView("leaderboard");
+    activeRoundIndex = -1;
   }
 
   // determine whether the provided view is the currently-active view.
@@ -129,6 +138,7 @@
     rounds = [{ id: 0, label: "Round 1", configID: 0, players: []}];
     activeRoundIndex = 0;
     nextRoundNumber = 1;
+    activeView = "import";
 
     if (fileInput) {
       fileInput.value = "";
@@ -167,6 +177,7 @@
       return;
     }
     rounds[activeRoundIndex].players = TsvToRoundPlayers(roundData);
+    activeView = "scored";
 
     console.log(rounds[activeRoundIndex].players);
 
@@ -236,7 +247,15 @@
   </nav>
 
   <div class="content-layout">
-    {#if activeView === "import"}
+    {#if activeView === "scored"}
+      <section class="scored-panel">
+        <p>scored panel.</p>
+      </section>
+    {:else if activeView === "unscored"}
+      <section class="unscored-panel">
+        <p>unscored panel.</p>
+      </section>
+    {:else if activeView === "import"}
       <section class="import-panel" aria-label="Import player data">
         <div class="drop-area">
           <div class="import-content">
@@ -270,12 +289,21 @@
           </div>
         </div>
       </section>
+    {:else if activeView === "config"}
+      <section class="config-panel">
+        <p>config panel</p>
+      </section>
+    {:else if activeView === "leaderboard"}
+      <section class="leaderboard-panel">
+        <p>leaderboard panel</p>
+      </section>
     {:else}
       <section>
         <p>Unimplemented section {activeView}...</p>
       </section>
     {/if}
 
+    {#if activeView !== "leaderboard"}
     <aside class="options-panel" aria-labelledby="options-title">
       <h1 id="options-title">View Options</h1>
       {#each viewOptions as option (option.id)}
@@ -286,6 +314,16 @@
         </button>
       {/each}
     </aside>
+    {:else}
+    <aside class="options-panel" aria-labelledby="options-title">
+      <h1 id="options-title">Leaderboard Actions</h1>
+      {#each leaderboardOptions as option (option.id)}
+        <button class="button option" type="button" onclick={() => option.action}>
+          {option.label}
+        </button>
+      {/each}
+    </aside>
+    {/if}
   </div>
 </main>
 
