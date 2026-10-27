@@ -1,39 +1,41 @@
-/* the following imports are what was found when visiting https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap
-... at the time of this project's creation. the sources given by above link were downloaded and copied into the project.
-
-so, if anything changes, we at least have this version of the font! */
+/* the following imports are what was found when visiting
+   https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap
+   ... at the time of this project's creation. the sources given by above link
+   were downloaded and copied into the project.
+   so, if anything changes, we at least have this version of the font! */
 
 /* hebrew */
 @font-face {
-  font-family: 'Fredoka';
+  font-family: "Fredoka";
   font-style: normal;
   font-weight: 300 700;
   font-stretch: 100%;
   font-display: swap;
-  src: url(/fonts/fredoka-hebrew.woff2) format('woff2');
+  src: url(/fonts/fredoka-hebrew.woff2) format("woff2");
   unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
 }
+
 /* latin-ext */
 @font-face {
-  font-family: 'Fredoka';
+  font-family: "Fredoka";
   font-style: normal;
   font-weight: 300 700;
   font-stretch: 100%;
   font-display: swap;
-  src: url(/fonts/fredoka-latin-ext.woff2) format('woff2');
+  src: url(/fonts/fredoka-latin-ext.woff2) format("woff2");
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
+
 /* latin */
 @font-face {
-  font-family: 'Fredoka';
+  font-family: "Fredoka";
   font-style: normal;
   font-weight: 300 700;
   font-stretch: 100%;
   font-display: swap;
-  src: url(/fonts/fredoka-latin.woff2) format('woff2');
+  src: url(/fonts/fredoka-latin.woff2) format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-
 
 :root {
   /* chose to set the font here rather than in the body element */
@@ -47,7 +49,6 @@ so, if anything changes, we at least have this version of the font! */
   --color-outline: #694e3a;
   --color-text: #3b2a1a;
 
-
   /* buttons! ... mostly */
   --color-focus: #ebb37a;
   --color-hover-critical: #f29b38;
@@ -59,7 +60,7 @@ so, if anything changes, we at least have this version of the font! */
   --color-safe: #59be5f;
   --color-disabled: #ccc;
 
-  /* font-weights | hopefully easier Figma translation. */ 
+  /* font-weights | hopefully easier Figma translation. */
   --weight-light: 300;
   --weight-regular: 400;
   --weight-medium: 500;
@@ -88,6 +89,14 @@ textarea {
 button {
   color: inherit;
   cursor: pointer;
+}
+
+button:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 4px solid var(--color-hover-critical);
+  outline-offset: 3px;
 }
 
 /* Header */
@@ -202,13 +211,16 @@ button {
 .button {
   min-height: 70px;
   padding: 12px 18px;
+  flex: 0 0 auto;
   font-size: 22px;
   white-space: nowrap;
-  flex: 0 0 auto;
 }
 
-.button:hover:not(:disabled) {
-  background: var(--color-hover-critical);
+/* use yellow for consistent button highlighting */
+.button:hover:not(:disabled),
+.button:focus-visible:not(:disabled),
+.button:active:not(:disabled) {
+  background: var(--color-selected-critical);
 }
 
 .round-tabs {
@@ -254,6 +266,7 @@ button {
   white-space: nowrap;
 }
 
+/* only the round currently being viewed gets the peach fill */
 .round-tab.active {
   background: var(--color-focus);
   font-weight: var(--weight-semi-bold);
@@ -280,7 +293,11 @@ button {
   font-weight: var(--weight-regular);
 }
 
-.leaderboard {
+.close-round:hover {
+  color: var(--color-warn);
+}
+
+.leaderboard-button {
   margin-left: 0;
 }
 
@@ -293,23 +310,31 @@ button {
   gap: 32px;
 }
 
+/* these panels share the same border and base fill */
 .scored-panel,
 .unscored-panel,
 .leaderboard-panel,
 .import-panel,
+.main-panel,
 .options-panel {
   border: 5px solid var(--color-outline);
   border-radius: 16px;
-  background: var(--color-surface);
 }
 
 .scored-panel,
 .unscored-panel,
 .leaderboard-panel,
 .config-panel,
-.import-panel {
+.import-panel,
+.main-panel {
+  min-width: 0;
   min-height: 600px;
   padding: 28px;
+  background: var(--color-surface);
+}
+
+.main-panel {
+  min-width: 0;
 }
 
 .drop-area {
@@ -326,9 +351,10 @@ button {
 
 .import-content {
   width: 100%;
+  min-height: 500px;
 }
 
-.import-title {
+.drop-area h1 {
   margin: 0 0 12px;
   color: var(--color-text);
   font-size: clamp(24px, 2.3vw, 36px);
@@ -359,7 +385,6 @@ button {
   outline-offset: 4px;
 }
 
-
 /* text that appears under Choose File when one is selected */
 .file-status {
   min-height: 24px;
@@ -384,11 +409,13 @@ button {
 }
 
 .options-panel {
+  min-width: 0;
   padding: 14px;
   background: var(--color-surface-offset);
 }
 
-.options-panel h1 {
+.options-panel h1,
+.options-panel h2 {
   margin: 0 0 14px;
   color: var(--color-text);
   text-align: center;
@@ -400,8 +427,9 @@ button {
   width: 100%;
   min-height: 76px;
   margin: 0 0 16px;
-  font-size: 26px;
   background: var(--color-surface);
+  font-size: 26px;
+  white-space: normal;
 }
 
 .option.selected {
@@ -417,6 +445,85 @@ button {
 .option:disabled {
   background: var(--color-disabled);
   cursor: not-allowed;
+}
+
+/* added for the scored and leaderboard tables */
+.data-content,
+.leaderboard-content {
+  min-height: 500px;
+}
+
+.data-content h1,
+.leaderboard-content h1 {
+  margin: 0 0 20px;
+  color: var(--color-text);
+  font-size: clamp(28px, 3vw, 40px);
+}
+
+.empty-message {
+  margin: 28px 0;
+  font-size: 20px;
+  text-align: center;
+}
+
+.leaderboard-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 3px solid var(--color-outline);
+  border-radius: 12px;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  font-size: 18px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--color-outline);
+  text-align: left;
+}
+
+.leaderboard-table th {
+  background: var(--color-surface-offset);
+  font-weight: var(--weight-bold);
+}
+
+.leaderboard-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* the top three places use the reference colors */
+.leaderboard-table tbody tr.place-first {
+  background: var(--color-selected-critical);
+}
+
+.leaderboard-table tbody tr.place-second {
+  background: #d0d0d0;
+}
+
+.leaderboard-table tbody tr.place-third {
+  background: var(--color-focus);
+}
+
+.rank-cell,
+.points-cell {
+  font-size: 22px;
+  font-weight: var(--weight-bold);
+}
+
+.tag-cell {
+  min-width: 80px;
+  font-size: 20px;
+  font-weight: var(--weight-bold);
+}
+
+.status-message {
+  margin: 12px 4px;
+  font-size: 17px;
 }
 
 /* Reset confirmation dialog */
@@ -457,11 +564,11 @@ button {
 .reset-dialog-actions {
   display: flex;
   justify-content: center;
-  gap: 78px;
+  gap: 28px;
   margin-top: 28px;
 }
 
-.reset-dialog-button {
+.reset-dialog-actions .button {
   min-width: 100px;
   min-height: 46px;
   padding: 6px 12px;
@@ -500,6 +607,10 @@ button {
   border-radius: 18px;
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+.paste-form {
+  height: 100%;
 }
 
 .paste-dialog-close {
@@ -587,10 +698,16 @@ button {
   line-height: 1.25;
 }
 
+.paste-instructions > p:nth-child(2) {
+  margin: 12px 0 0;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
 .paste-submit-button {
   min-width: 148px;
   min-height: 60px;
-  margin-top: 76px;
+  margin-top: auto;
   padding: 6px 14px;
   border: 5px solid var(--color-outline);
   border-radius: 16px;
@@ -639,7 +756,8 @@ button {
     font-size: 18px;
   }
 
-  .options-panel h1 {
+  .options-panel h1,
+  .options-panel h2 {
     font-size: 29px;
   }
 
@@ -679,7 +797,7 @@ button {
     order: 3;
   }
 
-  .leaderboard {
+  .leaderboard-button {
     margin-left: auto;
   }
 
@@ -687,9 +805,20 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .import-panel {
+  .scored-panel,
+  .unscored-panel,
+  .leaderboard-panel,
+  .config-panel,
+  .import-panel,
+  .main-panel {
     min-height: 420px;
     padding: 14px;
+  }
+
+  .import-content,
+  .data-content,
+  .leaderboard-content {
+    min-height: 390px;
   }
 
   .drop-area {
@@ -697,12 +826,14 @@ button {
   }
 
   .options-panel {
+    min-height: 0;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
 
-  .options-panel h1 {
+  .options-panel h1,
+  .options-panel h2 {
     grid-column: 1 / -1;
     margin-bottom: 4px;
   }
@@ -713,6 +844,10 @@ button {
     padding: 8px;
     font-size: 17px;
     white-space: normal;
+  }
+
+  .leaderboard-table {
+    min-width: 620px;
   }
 
   .reset-dialog-content {
