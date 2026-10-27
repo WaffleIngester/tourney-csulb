@@ -4,6 +4,8 @@
   // MAIN CONCERN: ** --> Fix RoundIndex <-- **
   // MAIN PROGRESS: Fix CSS/ Modularlize components.
 
+  // show sample leaderboard data until scoring is ready.
+
   // css
   import "./page.css";
 
@@ -35,12 +37,59 @@
   // currently-active view being used rn!!
   type ActiveView = "scored" | "unscored" | "import" | "config" | "leaderboard";
 
+  type SampleLeaderboardTeam = {
+    rank: number;
+    name: string;
+    players: string[];
+    roundScores: number[];
+    total: number;
+  };
+
   const viewOptions = [
     { id: "scored", label: "View Scored", requiresPlayers: true },
     { id: "unscored", label: "View Unscored", requiresPlayers: true },
     { id: "import", label: "Replace Data", requiresPlayers: false },
     { id: "config", label: "Edit Scoring Rules", requiresPlayers: false }
   ] as const;
+
+  // these rows are placeholders until the scoring work is ready to connect.
+  const sampleLeaderboard: SampleLeaderboardTeam[] = [
+    {
+      rank: 1,
+      name: "Golden Gooses",
+      players: ["Mochi", "Peach"],
+      roundScores: [42, 38, 51],
+      total: 131
+    },
+    {
+      rank: 2,
+      name: "Drop Bears",
+      players: ["Poppy", "Miso"],
+      roundScores: [40, 44, 39],
+      total: 123
+    },
+    {
+      rank: 3,
+      name: "Tiny Terrors",
+      players: ["Clover", "Biscuit"],
+      roundScores: [36, 41, 37],
+      total: 114
+    },
+    {
+      rank: 4,
+      name: "Cloud Squad",
+      players: ["Nori", "Dumpling"],
+      roundScores: [33, 35, 40],
+      total: 108
+    },
+    {
+      rank: 5,
+      name: "Cactus Crew",
+      players: ["Bean", "Tater"],
+      roundScores: [31, 34, 35],
+      total: 100
+    }
+  ];
 
   let gamemode = $state(Gamemode.Solos);
   let status = $state("");
@@ -90,7 +139,7 @@
     status = "";
   }
 
-  // the last round stays; shift skips the delete confirmation.
+  // the last round stays,, shift skips the delete confirmation.
   function removeRound(id: number, event: MouseEvent) {
     if (rounds.length <= 1) {
       status = "";
@@ -136,10 +185,7 @@
   }
 
   function changeActiveView(view: ActiveView) {
-    if (
-      (view === "scored" || view === "unscored") &&
-      !activeRoundHasPlayers
-    ) {
+    if ((view === "scored" || view === "unscored") && !activeRoundHasPlayers) {
       activeView = "import";
       status = "Import player data for this round first.";
       return;
@@ -217,7 +263,7 @@
     pasteDialog?.close();
   }
 
-  // file selection reports the name; parsing can be connected later.
+  // file selection reports the name,, parsing can be connected later.
   function handleFileChange(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
@@ -292,7 +338,7 @@
   </nav>
 
   <div class="content-layout">
-    <section class="main-panel">
+    <section class="main-panel" class:showing-import={activeView === "import"}>
       {#if activeView === "import"}
         <div class="import-content">
           <div class="drop-area">
@@ -308,6 +354,7 @@
                 aria-label="Choose a /getplayers file"
                 onchange={handleFileChange}
               />
+
               <label class="button choose-file" for="player-file">
                 Choose File
               </label>
@@ -333,9 +380,48 @@
           <p>config panel</p>
         </section>
       {:else}
-        <section class="leaderboard-panel">
-          <p>leaderboard panel</p>
-        </section>
+        <div class="leaderboard-content">
+          <h1>Tournament Leaderboard</h1>
+          <p class="status-message">
+            sample layout, scores will connect after scoring is ready!
+          </p>
+
+          <div class="leaderboard-table-wrap">
+            <table class="leaderboard-table">
+              <caption class="visually-hidden">
+                Sample tournament leaderboard with team scores by round
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Place</th>
+                  <th scope="col">Team</th>
+                  <th scope="col">Players</th>
+                  <th scope="col">Round 1</th>
+                  <th scope="col">Round 2</th>
+                  <th scope="col">Round 3</th>
+                  <th scope="col">Total Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each sampleLeaderboard as team (team.rank)}
+                  <tr
+                    class:place-first={team.rank === 1}
+                    class:place-second={team.rank === 2}
+                    class:place-third={team.rank === 3}
+                  >
+                    <td class="rank-cell">{team.rank}</td>
+                    <td>{team.name}</td>
+                    <td>{team.players.join(", ")}</td>
+                    {#each team.roundScores as score, index (`${team.rank}-${index}`)}
+                      <td>{score}</td>
+                    {/each}
+                    <td class="points-cell">{team.total}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
       {/if}
     </section>
 
@@ -345,6 +431,9 @@
         <button class="button option" type="button" disabled>
           Export Data
         </button>
+        <p class="status-message">
+          export will be available when real leaderboard scores are connected.
+        </p>
       {:else}
         <h2 id="options-title">Data Options</h2>
 
@@ -384,6 +473,96 @@
     </div>
   </div>
 </dialog>
+
+<style>
+  /* let the dotted import area fill the panel. */
+  .main-panel.showing-import {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .main-panel.showing-import .import-content {
+    width: 100%;
+    min-height: 0;
+    flex: 1;
+    display: flex;
+  }
+
+  .main-panel.showing-import .drop-area {
+    width: 100%;
+    min-height: 0;
+    flex: 1;
+  }
+
+  /* these rows use the rounded bar style from the reference image. */
+  .leaderboard-content {
+    min-height: 500px;
+  }
+
+  .leaderboard-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .leaderboard-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 14px;
+    background: transparent;
+  }
+
+  .leaderboard-table th {
+    padding: 10px 12px;
+    text-align: left;
+  }
+
+  .leaderboard-table tbody td {
+    padding: 12px;
+    border-top: 4px solid #694e3a;
+    border-bottom: 4px solid #694e3a;
+    background: #fff;
+    color: #3b2a1a;
+    white-space: nowrap;
+  }
+
+  .leaderboard-table tbody td:first-child {
+    border-left: 4px solid #694e3a;
+    border-radius: 12px 0 0 12px;
+  }
+
+  .leaderboard-table tbody td:last-child {
+    border-right: 4px solid #694e3a;
+    border-radius: 0 12px 12px 0;
+  }
+
+  .leaderboard-table tbody tr:last-child td {
+    border-bottom: 4px solid #694e3a;
+  }
+
+  .leaderboard-table tbody tr.place-first td {
+    background: #ffd84a;
+  }
+
+  .leaderboard-table tbody tr.place-second td {
+    background: #d0d0d0;
+  }
+
+  .leaderboard-table tbody tr.place-third td {
+    background: #ebb37a;
+  }
+
+  @media (max-width: 650px) {
+    .leaderboard-content {
+      min-height: 390px;
+    }
+
+    .leaderboard-table {
+      min-width: 620px;
+    }
+  }
+</style>
 
 <dialog class="reset-dialog" bind:this={resetDialog}>
   <div class="reset-dialog-content">
