@@ -1,14 +1,14 @@
 import type { RoundPlayer } from "#lib/features/rounds/round-types.ts";
 
 export class ScoredPlayer implements RoundPlayer {
-    public readonly pID: number;
-    public readonly player: string;
-    public readonly playfabID: string;
-    public readonly squadID: number;
-    public readonly teamID: number;
-    public readonly kills: number;
+    public pID: number;
+    public player: string;
+    public playfabID: string;
+    public squadID: number;
+    public teamID: number;
+    public kills: number;
     public placement: number;
-    public readonly trueScore: number;
+    public trueScore: number;
 
     public killPts: number;
     public killLeaderPts: number;

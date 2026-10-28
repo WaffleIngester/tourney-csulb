@@ -17,11 +17,20 @@
   import { TextToTSV } from "#lib/utils/tsv-reader.ts";
   import { TsvRow } from "#lib/utils/tsv-reader.ts";
 
-  import { ColumnType, getTsvError, TsvValidationError } from "#lib/utils/tsv-validator.ts";
+  import { ColumnType, getTsvError } from "#lib/utils/tsv-validator.ts";
   import type { RequiredColumn } from "#lib/utils/tsv-validator.ts";
 
   // gamemode
   import { Gamemode } from "#lib/utils/gamemode.ts";
+  import { getMaxTeamSizeForGamemode } from "#lib/utils/gamemode.ts";
+
+  // scored imports
+  import { ScoredTeam } from "#lib/features/scoring/scored-team.ts";
+  import { calculateScores } from "#lib/features/scoring/scoring-actions.ts";
+
+  // views
+  import UnscoredView from "#lib/features/rounds/UnscoredView.svelte";
+  import ScoredView from "#lib/features/rounds/ScoredView.svelte";
 
 
   // columns required when validating an imported TSV.
@@ -60,10 +69,52 @@
   let fileInput = $state<HTMLInputElement | null>(null);
 
   let rounds = $state<Round[]>([{ id: 0, label: "Round 1", configID: 0, players: []}]);
+  let configs = $state<Config[]>([{ id: 0, killCap: 0, pointsPerKill: 1, pointsKillLeader: 0, pointRanges: [ {maxPlace: 64, points: 1} ]}]);
   let activeRoundIndex = $state<number>(0);
   let nextRoundNumber = $state(1);
 
   let activeView = $state<ActiveView>("import");
+
+
+  // todo: popups when using invalid gamemode
+  // todo: forces always active round. need more robust way to do this for ANY round and then return the  
+  function getScoredTeamsForRound(roundIndex: number): ScoredTeam[] {
+    if (roundIndex <= -1) {
+      throw new Error("Tried to perform scoring but the given round index is negative. Why?");
+    }
+
+    const round: Round = rounds[roundIndex];
+    if (round === undefined) {
+      throw new Error(`Could not locate a Round at index: ${roundIndex}.`);
+    }
+    if (round.players.length === 0) {
+      console.warn(`Attempted scoring on a round with no players at index ${roundIndex}.`);
+      return [];
+    }
+
+    const config: Config = configs[round.configID];
+    if (config === undefined) {
+      throw new Error(`Could not locate the config for the active round. Search for config @ index ${round.configID}?`)
+    }
+
+    const maxTeamSize: number = getMaxTeamSizeForGamemode(gamemode);
+    let squads: ScoredTeam[];
+    try {
+      squads = calculateScores(maxTeamSize, config, round.players);
+    } catch {
+      // todo: actually handle improper team sizes. for now, this works, I suppose.
+      console.error("Tried scoring for a gamemode with team sizes smaller than those in the provided dataset.");
+      console.error("Teams have been calculated as SQUADS to not throw an error. In the future, one should be clearly notified.");
+      squads = calculateScores(4, config, round.players);
+    }
+    if (squads === null || squads === undefined) {
+      console.error("ya don goofed.");
+      return [];
+    }
+
+    // todo: should have more of a scoring-result which includes any fancy data facts we want.
+    return squads;
+  }
 
   // change the currently-active view to the provided view.
   function changeActiveView(view: ActiveView) {
@@ -248,13 +299,9 @@
 
   <div class="content-layout">
     {#if activeView === "scored"}
-      <section class="scored-panel">
-        <p>scored panel.</p>
-      </section>
+      <ScoredView roundId={rounds[activeRoundIndex].id} squads={getScoredTeamsForRound(activeRoundIndex)} />
     {:else if activeView === "unscored"}
-      <section class="unscored-panel">
-        <p>unscored panel.</p>
-      </section>
+      <UnscoredView roundId={rounds[activeRoundIndex].id} players={rounds[activeRoundIndex].players} />
     {:else if activeView === "import"}
       <section class="import-panel" aria-label="Import player data">
         <div class="drop-area">

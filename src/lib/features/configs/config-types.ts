@@ -24,7 +24,7 @@ export class ConfigValidationError extends Error {
 
 // minimalist data representation for a configuration as stored/ processed by the program.
 export type Config = {
-    id : string;
+    id: number;
 
     killCap: number;
     pointsPerKill: number;
