@@ -432,6 +432,7 @@
 
     <button
       class="button leaderboard-button"
+      class:active={activeView === "leaderboard"}
       type="button"
       onclick={viewLeaderboard}
     >

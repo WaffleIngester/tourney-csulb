@@ -289,6 +289,10 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.round-tab.active .round-select {
+  font-weight: var(--weight-bold);
+}
+
 .close-round {
   min-width: 34px;
   font-size: 25px;
@@ -301,6 +305,10 @@ a:focus-visible {
 
 .leaderboard-button {
   margin-left: 0;
+}
+
+.leaderboard-button.active {
+  background: var(--color-selected-critical);
 }
 
 /* Import area and data options */
