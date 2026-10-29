@@ -4,8 +4,6 @@
   // MAIN CONCERN: ** --> Fix RoundIndex <-- **
   // MAIN PROGRESS: Fix CSS/ Modularlize components.
 
-  // show sample leaderboard data until scoring is ready.
-
   // css
   import "./page.css";
 
@@ -47,14 +45,6 @@
   // currently-active view being used rn!!
   type ActiveView = "scored" | "unscored" | "import" | "config" | "leaderboard";
 
-  type SampleLeaderboardTeam = {
-    rank: number;
-    name: string;
-    players: string[];
-    roundScores: number[];
-    total: number;
-  };
-
   const viewOptions = [
     { id: "scored", label: "View Scored", requiresPlayers: true },
     { id: "unscored", label: "View Unscored", requiresPlayers: true },
@@ -62,66 +52,64 @@
     { id: "config", label: "Edit Scoring Rules", requiresPlayers: false }
   ] as const;
 
-  // these rows are placeholders until the scoring work is ready to connect.
-  const sampleLeaderboard: SampleLeaderboardTeam[] = [
-    {
-      rank: 1,
-      name: "Golden Gooses",
-      players: ["Mochi", "Peach"],
-      roundScores: [42, 38, 51],
-      total: 131
-    },
-    {
-      rank: 2,
-      name: "Drop Bears",
-      players: ["Poppy", "Miso"],
-      roundScores: [40, 44, 39],
-      total: 123
-    },
-    {
-      rank: 3,
-      name: "Tiny Terrors",
-      players: ["Clover", "Biscuit"],
-      roundScores: [36, 41, 37],
-      total: 114
-    },
-    {
-      rank: 4,
-      name: "Cloud Squad",
-      players: ["Nori", "Dumpling"],
-      roundScores: [33, 35, 40],
-      total: 108
-    },
-    {
-      rank: 5,
-      name: "Cactus Crew",
-      players: ["Bean", "Tater"],
-      roundScores: [31, 34, 35],
-      total: 100
-    }
-  ];
+  type LeaderboardPlayer = {
+    rank: number;
+    playfabID: string;
+    name: string;
+    roundScores: (number | null)[];
+    total: number;
+  };
+
+  let leaderboard = $derived.by(() => {
+    const playersById = new Map<string, Omit<LeaderboardPlayer, "rank">>();
+
+    rounds.forEach((round, roundIndex) => {
+      if (round.players.length === 0) return;
+
+      const squads = getScoredTeamsForRound(roundIndex);
+
+      for (const squad of squads) {
+        const placementShare =
+          squad.size > 0 ? squad.placementPoints / squad.size : 0;
+
+        for (const player of squad.teamMembers) {
+          let entry = playersById.get(player.playfabID);
+
+          if (!entry) {
+            entry = {
+              playfabID: player.playfabID,
+              name: player.player,
+              roundScores: Array(rounds.length).fill(null),
+              total: 0
+            };
+            playersById.set(player.playfabID, entry);
+          }
+
+          const score = player.points + placementShare;
+          entry.roundScores[roundIndex] = score;
+          entry.total += score;
+        }
+      }
+    });
+
+    return [...playersById.values()]
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+      .map((player, index) => ({ ...player, rank: index + 1 }));
+  });
 
   function exportLeaderboard() {
-    const roundCount = Math.max(
-      0,
-      ...sampleLeaderboard.map((team) => team.roundScores.length)
-    );
-
     const headers = [
       "Place",
-      "Players",
-      ...Array.from({ length: roundCount }, (_, index) => `Round ${index + 1}`),
+      "Player",
+      ...rounds.map((round) => round.label),
       "Total Points"
     ];
 
-    const rows = sampleLeaderboard.map((team) => [
-      team.rank,
-      team.players.join(", "),
-      ...Array.from(
-        { length: roundCount },
-        (_, index) => team.roundScores[index] ?? ""
-      ),
-      team.total
+    const rows = leaderboard.map((player) => [
+      player.rank,
+      player.name,
+      ...player.roundScores.map((score) => score ?? ""),
+      player.total
     ]);
 
     const csv = [headers, ...rows]
@@ -225,7 +213,7 @@
 
   function selectRound(round: Round) {
     activeRoundId = round.id;
-    activeView = "import";
+    activeView = round.players.length > 0 ? "scored" : "import";
     status = "";
   }
 
@@ -502,9 +490,6 @@
         {:else}
           <div class="leaderboard-content">
           <h1>Tournament Leaderboard</h1>
-          <p class="status-message">
-            sample layout, scores will connect after scoring is ready!
-          </p>
 
           <div class="leaderboard-table-wrap">
             <table class="leaderboard-table">
@@ -519,15 +504,15 @@
               </tr>
             </thead>
             <tbody>
-              {#each sampleLeaderboard as team (team.rank)}
+              {#each leaderboard as player (player.playfabID)}
                 <tr
-                  class:place-first={team.rank === 1}
-                  class:place-second={team.rank === 2}
-                  class:place-third={team.rank === 3}
+                  class:place-first={player.rank === 1}
+                  class:place-second={player.rank === 2}
+                  class:place-third={player.rank === 3}
                 >
-                  <td class="rank-cell">{team.rank}</td>
-                  <td>{team.players.join(", ")}</td>
-                  <td class="points-cell">{team.total}</td>
+                  <td class="rank-cell">{player.rank}</td>
+                  <td>{player.name}</td>
+                  <td class="points-cell">{player.total}</td>
                 </tr>
               {/each}
             </tbody>
