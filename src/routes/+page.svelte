@@ -91,6 +91,55 @@
     }
   ];
 
+  function exportLeaderboard() {
+    const roundCount = Math.max(
+      0,
+      ...sampleLeaderboard.map((team) => team.roundScores.length)
+    );
+
+    const headers = [
+      "Place",
+      "Players",
+      ...Array.from({ length: roundCount }, (_, index) => `Round ${index + 1}`),
+      "Total Points"
+    ];
+
+    const rows = sampleLeaderboard.map((team) => [
+      team.rank,
+      team.players.join(", "),
+      ...Array.from(
+        { length: roundCount },
+        (_, index) => team.roundScores[index] ?? ""
+      ),
+      team.total
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((value) => {
+            const text = String(value);
+            const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+            return `"${safeText.replaceAll('"', '""')}"`;
+          })
+          .join(",")
+      )
+      .join("\r\n");
+
+    const file = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8;"
+    });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "tournament-leaderboard.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   let gamemode = $state(Gamemode.Solos);
   let status = $state("");
   let pastedOutput = $state("");
@@ -397,38 +446,30 @@
 
           <div class="leaderboard-table-wrap">
             <table class="leaderboard-table">
-              <caption class="visually-hidden">
-                Sample tournament leaderboard with team scores by round
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Place</th>
-                  <th scope="col">Team</th>
-                  <th scope="col">Players</th>
-                  <th scope="col">Round 1</th>
-                  <th scope="col">Round 2</th>
-                  <th scope="col">Round 3</th>
-                  <th scope="col">Total Points</th>
+            <caption class="visually-hidden">
+              Tournament leaderboard with player names and total points
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Place</th>
+                <th scope="col">Players</th>
+                <th scope="col">Total Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each sampleLeaderboard as team (team.rank)}
+                <tr
+                  class:place-first={team.rank === 1}
+                  class:place-second={team.rank === 2}
+                  class:place-third={team.rank === 3}
+                >
+                  <td class="rank-cell">{team.rank}</td>
+                  <td>{team.players.join(", ")}</td>
+                  <td class="points-cell">{team.total}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each sampleLeaderboard as team (team.rank)}
-                  <tr
-                    class:place-first={team.rank === 1}
-                    class:place-second={team.rank === 2}
-                    class:place-third={team.rank === 3}
-                  >
-                    <td class="rank-cell">{team.rank}</td>
-                    <td>{team.name}</td>
-                    <td>{team.players.join(", ")}</td>
-                    {#each team.roundScores as score, index (`${team.rank}-${index}`)}
-                      <td>{score}</td>
-                    {/each}
-                    <td class="points-cell">{team.total}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/each}
+            </tbody>
+          </table>
           </div>
         </div>
       {/if}
@@ -437,15 +478,15 @@
     <aside class="options-panel" aria-labelledby="options-title">
       {#if activeView === "leaderboard"}
         <h2 id="options-title">Leaderboard Actions</h2>
-        <button class="button option" type="button" disabled>
+        <button
+          class="button option"
+          type="button"
+          onclick={exportLeaderboard}
+        >
           Export Data
         </button>
-        <p class="status-message">
-          export will be available when real leaderboard scores are connected.
-        </p>
-      {:else}
+        {:else}
         <h2 id="options-title">Data Options</h2>
-
         {#each viewOptions as option (option.id)}
           <button
             class="button option"
@@ -525,6 +566,11 @@
   .leaderboard-table th {
     padding: 10px 12px;
     text-align: left;
+  }
+
+  .leaderboard-table th:last-child,
+  .leaderboard-table .points-cell {
+    text-align: center;
   }
 
   .leaderboard-table tbody td {
