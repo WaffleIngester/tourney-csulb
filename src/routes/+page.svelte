@@ -264,13 +264,22 @@
   }
 
   // file selection reports the name,, parsing can be connected later.
-  function handleFileChange(event: Event) {
+  async function handleFileChange(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
 
-    status = file
-      ? `Selected: ${file.name}. File importing is not connected yet.`
-      : "";
+    if (!file) {
+      return;
+    }
+
+    try {
+      pastedOutput = await file.text();
+      pasteError = "";
+      status = `Selected: ${file.name}`;
+      pasteDialog?.showModal();
+    } catch {
+      status = `Could not read ${file.name}. Please choose a text file.`;
+    }
   }
 </script>
 
