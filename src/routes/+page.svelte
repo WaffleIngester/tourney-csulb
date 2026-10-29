@@ -21,6 +21,16 @@
 
   // gamemode
   import { Gamemode } from "#lib/utils/gamemode.ts";
+  import { getMaxTeamSizeForGamemode } from "#lib/utils/gamemode.ts";
+
+  // scored imports
+  import type { Config } from "#lib/features/configs/config-types.ts";
+  import { ScoredTeam } from "#lib/features/scoring/scored-team.ts";
+  import { calculateScores } from "#lib/features/scoring/scoring-actions.ts";
+
+  // views
+  import UnscoredView from "#lib/features/rounds/UnscoredView.svelte";
+  import ScoredView from "#lib/features/rounds/ScoredView.svelte";
 
   // columns required when validating an imported tsv.
   // there are no aliases. you're either right, or you're wrong.
@@ -151,9 +161,11 @@
   let fileInput = $state<HTMLInputElement | null>(null);
 
   let rounds = $state<Round[]>([
-    { id: 1, label: "Round 1", configID: 0, players: [] }
+  { id: 1, label: "Round 1", configID: 0, players: [] }
   ]);
+  let configs = $state<Config[]>([{ id: "0", killCap: 0, pointsPerKill: 1, pointsKillLeader: 0, pointRanges: [{ maxPlace: 64, points: 1 }] }]);
 
+  // round ids are unique and are separate from round array positions.
   // round ids are unique and are separate from round array positions.
   let activeRoundId = $state<number | null>(1);
   let nextRoundId = $state(2);
@@ -162,6 +174,50 @@
   let activeRound = $derived(
     rounds.find((round) => round.id === activeRoundId) ?? null
   );
+
+  let activeRoundIndex = $derived(
+    rounds.findIndex((round) => round.id === activeRoundId)
+  );
+
+  // todo: popups when using invalid gamemode
+  // todo: forces always active round. need more robust way to do this for ANY round and then return the  
+  function getScoredTeamsForRound(roundIndex: number): ScoredTeam[] {
+    if (roundIndex <= -1) {
+      throw new Error("Tried to perform scoring but the given round index is negative. Why?");
+    }
+
+    const round: Round = rounds[roundIndex];
+    if (round === undefined) {
+      throw new Error(`Could not locate a Round at index: ${roundIndex}.`);
+    }
+    if (round.players.length === 0) {
+      console.warn(`Attempted scoring on a round with no players at index ${roundIndex}.`);
+      return [];
+    }
+
+    const config: Config = configs[round.configID];
+    if (config === undefined) {
+      throw new Error(`Could not locate the config for the active round. Search for config @ index ${round.configID}?`)
+    }
+
+    const maxTeamSize: number = getMaxTeamSizeForGamemode(gamemode);
+    let squads: ScoredTeam[];
+    try {
+      squads = calculateScores(maxTeamSize, config, round.players);
+    } catch {
+      // todo: actually handle improper team sizes. for now, this works, I suppose.
+      console.error("Tried scoring for a gamemode with team sizes smaller than those in the provided dataset.");
+      console.error("Teams have been calculated as SQUADS to not throw an error. In the future, one should be clearly notified.");
+      squads = calculateScores(4, config, round.players);
+    }
+    if (squads === null || squads === undefined) {
+      console.error("ya don goofed.");
+      return [];
+    }
+
+    // todo: should have more of a scoring-result which includes any fancy data facts we want.
+    return squads;
+  }
 
   let activeRoundHasPlayers = $derived(
     (activeRound?.players.length ?? 0) > 0
@@ -397,48 +453,54 @@
 
   <div class="content-layout">
     <section class="main-panel" class:showing-import={activeView === "import"}>
-      {#if activeView === "import"}
-        <div class="import-content">
-          <div class="drop-area">
-            <div>
-              <h1>Import the /getplayers file</h1>
+      {#if activeView === "scored"}
+        {#if activeRound}
+          <ScoredView
+            roundId={activeRound.id}
+            squads={getScoredTeamsForRound(activeRoundIndex)}
+          />
+        {/if}
+      {:else if activeView === "unscored"}
+        {#if activeRound}
+          <UnscoredView
+            roundId={activeRound.id}
+            players={activeRound.players}
+          />
+        {/if}
+        {:else if activeView === "import"}
+          <div class="import-content">
+            <div class="drop-area">
+              <div>
+                <h1>Import the /getplayers file</h1>
 
-              <input
-                bind:this={fileInput}
-                class="visually-hidden"
-                id="player-file"
-                type="file"
-                accept=".txt,.csv,.tsv"
-                aria-label="Choose a /getplayers file"
-                onchange={handleFileChange}
-              />
+                <input
+                  bind:this={fileInput}
+                  class="visually-hidden"
+                  id="player-file"
+                  type="file"
+                  accept=".txt,.csv,.tsv"
+                  aria-label="Choose a /getplayers file"
+                  onchange={handleFileChange}
+                />
 
-              <label class="button choose-file" for="player-file">
-                Choose File
-              </label>
+                <label class="button choose-file" for="player-file">
+                  Choose File
+                </label>
 
-              <p class="file-status" role="status">{status}</p>
+                <p class="file-status" role="status">{status}</p>
 
-              <button class="paste-button" type="button" onclick={openPasteDialog}>
-                Paste the output instead
-              </button>
+                <button class="paste-button" type="button" onclick={openPasteDialog}>
+                  Paste the output instead
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      {:else if activeView === "scored"}
-        <section class="scored-panel">
-          <p>scored panel</p>
-        </section>
-      {:else if activeView === "unscored"}
-        <section class="unscored-panel">
-          <p>unscored panel</p>
-        </section>
-      {:else if activeView === "config"}
-        <section class="config-panel">
-          <p>config panel</p>
-        </section>
-      {:else}
-        <div class="leaderboard-content">
+        {:else if activeView === "config"}
+          <section class="config-panel">
+            <p>config panel</p>
+          </section>
+        {:else}
+          <div class="leaderboard-content">
           <h1>Tournament Leaderboard</h1>
           <p class="status-message">
             sample layout, scores will connect after scoring is ready!
