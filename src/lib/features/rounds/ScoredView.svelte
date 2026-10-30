@@ -6,7 +6,7 @@
 </script>
 
 <section class="scored-panel">
-    <h1>Round {roundId + 1} scores</h1>
+    <h1>Round {roundId} scores</h1>
     <div class="players-table">
         <table>
             <thead>

@@ -1,9 +1,8 @@
 <script lang="ts">
   // --- TODO ---
+
   // MAIN CONCERN: ** --> Fix RoundIndex <-- **
   // MAIN PROGRESS: Fix CSS/ Modularlize components.
-  //
-  // TEMP: show sample leaderboard data until scoring is ready.
 
   // css
   import "./page.css";
@@ -18,9 +17,7 @@
   // tsv imports
   import { TextToTSV } from "#lib/utils/tsv-reader.ts";
   import { TsvRow } from "#lib/utils/tsv-reader.ts";
-
   import { ColumnType, getTsvError } from "#lib/utils/tsv-validator.ts";
-  import { getMaxTeamSizeForGamemode } from "#lib/utils/gamemode.ts";
 
   // scored imports
   import { ScoredTeam } from "#lib/features/scoring/scored-team.ts";
@@ -33,6 +30,7 @@
 
   // gamemode
   import { Gamemode } from "#lib/utils/gamemode.ts";
+  import { getMaxTeamSizeForGamemode } from "#lib/utils/gamemode.ts";
 
   // columns required when validating an imported tsv.
   const requiredColumns: RequiredColumn[] = [
@@ -66,6 +64,93 @@
   const leaderboardOptions = [
     { id: "export", label: "Export Data", action: console.log(`unimplemented action: export`)}
   ] as const;
+
+  type LeaderboardPlayer = {
+    rank: number;
+    playfabID: string;
+    name: string;
+    roundScores: (number | null)[];
+    total: number;
+  };
+
+  let leaderboard = $derived.by(() => {
+    const playersById = new Map<string, Omit<LeaderboardPlayer, "rank">>();
+
+    rounds.forEach((round, roundIndex) => {
+      if (round.players.length === 0) return;
+
+      // todo: bandage fix, must solve this when rounds complete. 
+      const squads = getScoredTeamsForRound(roundIndex+1);
+
+      for (const squad of squads) {
+        const placementShare =
+          squad.size > 0 ? squad.placementPoints / squad.size : 0;
+
+        for (const player of squad.teamMembers) {
+          let entry = playersById.get(player.playfabID);
+
+          if (!entry) {
+            entry = {
+              playfabID: player.playfabID,
+              name: player.player,
+              roundScores: Array(rounds.length).fill(null),
+              total: 0
+            };
+            playersById.set(player.playfabID, entry);
+          }
+
+          const score = player.points + placementShare;
+          entry.roundScores[roundIndex] = score;
+          entry.total += score;
+        }
+      }
+    });
+
+    return [...playersById.values()]
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+      .map((player, index) => ({ ...player, rank: index + 1 }));
+  });
+
+  function exportLeaderboard() {
+    const headers = [
+      "Place",
+      "Player",
+      ...rounds.map((round) => round.label),
+      "Total Points"
+    ];
+
+    const rows = leaderboard.map((player) => [
+      player.rank,
+      player.name,
+      ...player.roundScores.map((score) => score ?? ""),
+      player.total
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((value) => {
+            const text = String(value);
+            const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+            return `"${safeText.replaceAll('"', '""')}"`;
+          })
+          .join(",")
+      )
+      .join("\r\n");
+
+    const file = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8;"
+    });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "tournament-leaderboard.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
 
   // these rows are placeholders until the scoring work is ready to connect.
   const sampleLeaderboard: SampleLeaderboardTeam[] = [
@@ -119,12 +204,20 @@
   let rounds = $state<Round[]>([
     { id: 1, label: "Round 1", configID: 0, players: [] }
   ]);
+  let configs = $state<Config[]>([{ id: 0, killCap: 0, pointsPerKill: 1, pointsKillLeader: 0, pointRanges: [ {maxPlace: 64, points: 1} ]}]);
 
   // round ids are unique and are separate from round array positions.
-  let configs = $state<Config[]>([{ id: 0, killCap: 0, pointsPerKill: 1, pointsKillLeader: 0, pointRanges: [ {maxPlace: 64, points: 1} ]}]);
-  let activeRoundId = $state<number>(0);
+  let activeRoundId = $state<number>(1); // there shouldn't be a NULL round ID.
   let nextRoundId = $state(2);
   let activeView = $state<ActiveView>("import");
+
+  let activeRound = $derived(
+    rounds.find((round) => round.id === activeRoundId) ?? null
+  );
+
+  let activeRoundIndex = $derived(
+    rounds.findIndex((round) => round.id === activeRoundId)
+  );
 
 
   // todo: popups when using invalid gamemode
@@ -134,7 +227,8 @@
       throw new Error("Tried to perform scoring but the given round index is negative. Why?");
     }
 
-    const round: Round = rounds[roundIndex];
+    // TODO: bandage fix LOL!!!
+    const round: Round = rounds[roundIndex - 1];
     if (round === undefined) {
       throw new Error(`Could not locate a Round at index: ${roundIndex}.`);
     }
@@ -167,17 +261,13 @@
     return squads;
   }
 
-  let activeRound = $derived(
-    rounds.find((round) => (round.id - 1) === activeRoundId) ?? null
-  );
-
   let activeRoundHasPlayers = $derived(
     (activeRound?.players.length ?? 0) > 0
   );
 
   function selectRound(round: Round) {
     activeRoundId = round.id;
-    activeView = "import";
+    activeView = round.players.length > 0 ? "scored" : "import";
     status = "";
   }
 
@@ -236,7 +326,7 @@
   }
 
   function viewLeaderboard() {
-    activeRoundId = -1;
+    activeRoundId = -1; // the roundId really shouldn't be null if it is a number.
     activeView = "leaderboard";
     status = "";
   }
@@ -405,9 +495,9 @@
 
   <div class="content-layout">
     {#if activeView === "scored"}
-      <ScoredView roundId={rounds[activeRoundId].id} squads={getScoredTeamsForRound(activeRoundId)} />
+      <ScoredView roundId={activeRoundId} squads={getScoredTeamsForRound(activeRoundId)} />
     {:else if activeView === "unscored"}
-      <UnscoredView roundId={rounds[activeRoundId].id} players={rounds[activeRoundId].players} />
+      <UnscoredView roundId={activeRoundId} players={rounds[activeRoundId-1].players} />
     {:else if activeView === "import"}
       <section class="import-panel" aria-label="Import player data">
         <div class="drop-area">
@@ -444,40 +534,28 @@
         <section class="leaderboard-panel">
           <div class="leaderboard-content">
             <h1>Tournament Leaderboard</h1>
-            <p class="status-message">
-              sample layout, scores will connect after scoring is ready!
-            </p>
-
             <div class="leaderboard-table-wrap">
               <table class="leaderboard-table">
                 <caption class="visually-hidden">
-                  Sample tournament leaderboard with team scores by round
+                  Tournament leaderboard with player names and total points
                 </caption>
                 <thead>
                   <tr>
                     <th scope="col">Place</th>
-                    <th scope="col">Team</th>
                     <th scope="col">Players</th>
-                    <th scope="col">Round 1</th>
-                    <th scope="col">Round 2</th>
-                    <th scope="col">Round 3</th>
                     <th scope="col">Total Points</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {#each sampleLeaderboard as team (team.rank)}
+                  {#each leaderboard as player (player.playfabID)}
                     <tr
-                      class:place-first={team.rank === 1}
-                      class:place-second={team.rank === 2}
-                      class:place-third={team.rank === 3}
+                      class:place-first={player.rank === 1}
+                      class:place-second={player.rank === 2}
+                      class:place-third={player.rank === 3}
                     >
-                      <td class="rank-cell">{team.rank}</td>
-                      <td>{team.name}</td>
-                      <td>{team.players.join(", ")}</td>
-                      {#each team.roundScores as score, index (`${team.rank}-${index}`)}
-                        <td>{score}</td>
-                      {/each}
-                      <td class="points-cell">{team.total}</td>
+                      <td class="rank-cell">{player.rank}</td>
+                      <td>{player.name}</td>
+                      <td class="points-cell">{player.total}</td>
                     </tr>
                   {/each}
                 </tbody>

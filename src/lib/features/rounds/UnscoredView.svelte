@@ -6,7 +6,7 @@
 </script>
 
 <section class="unscored-panel">
-    <h1>Round {roundId + 1} data</h1>
+    <h1>Round {roundId} data</h1>
     <div class="players-table">
         <table>
             <thead>
