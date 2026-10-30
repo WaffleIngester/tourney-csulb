@@ -43,15 +43,6 @@ function sortPlayersByPlacement(players: RoundPlayer[]): RoundPlayer[] {
 }
 
 
-// helper function: fix any bad data, such as negative kills
-function normalizeRoundPlayerData(players: RoundPlayer[]): void {
-    for (let player of players) {
-        // fix negative kills
-        player.kills = Math.max(0, player.kills);
-    }
-}
-
-
 // calculates a player individaul score. **does not take into consideration placement. that is for "team"**
 function calculatePlayerScores(config: Config, players: RoundPlayer[]): ScoredPlayer[] {
     const scoredPlayers: ScoredPlayer[] = [];
@@ -62,7 +53,15 @@ function calculatePlayerScores(config: Config, players: RoundPlayer[]): ScoredPl
         const tmpPlayer = new ScoredPlayer(player);
 
         // begin: apply scoring rules
-        tmpPlayer.killPts = Math.min(player.kills, config.killCap) * config.pointsPerKill;
+
+        // kill caps
+        tmpPlayer.kills = Math.max(0, player.kills);
+        if (config.killCap > 0) {
+            tmpPlayer.kills = Math.min(tmpPlayer.kills, config.killCap)
+        }
+        tmpPlayer.killPts = tmpPlayer.kills * config.pointsPerKill;
+
+        // TODO: flag that a player has been kill-capped and show it.
 
         // it's a bit redundant to allow kill-leaders AND a kill-cap simultaneously... Well, may as well...
         // ... let event hosts make decision should they choose to.
@@ -128,6 +127,7 @@ function reassignSquadPlacements(squads: ScoredTeam[]): void {
         }
 
         squads[i].assignPlacement(nextPlace);
+        nextPlace++;
     }
 }
 
@@ -155,8 +155,8 @@ export function calculateScores(maxTeamSize: number, config: Config, players: Ro
         throw new ScoringError("There are no player scores to calculate.");
     }
 
-    const sortedPlayers = sortPlayersByPlacement([...players]);
-    normalizeRoundPlayerData(sortedPlayers)
+    const sortedPlayers = [...players].sort( (a, b) => a.placement - b.placement);
+    //const sortedPlayers = sortPlayersByPlacement([...players]);
 
     const scoredPlayers: ScoredPlayer[] = calculatePlayerScores(config, sortedPlayers);
 
@@ -164,5 +164,6 @@ export function calculateScores(maxTeamSize: number, config: Config, players: Ro
     reassignSquadPlacements(squads);
     assignPlacementPoints(config, squads);
 
-    throw new Error("Unfinished implementation.");
+    // should probs order by placement. need more work for displaying.
+    return squads.sort((a, b) => b.teamPoints - a.teamPoints);
 }

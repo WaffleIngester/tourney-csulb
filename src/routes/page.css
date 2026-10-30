@@ -15,6 +15,7 @@
   unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
 }
 
+
 /* latin-ext */
 @font-face {
   font-family: "Fredoka";
@@ -46,7 +47,9 @@
   --color-backdrop: #519156;
   --color-surface: #fff9cf;
   --color-surface-offset: #fff0b5;
-  /* this is more of an accent but eeh */
+  --color-surface-darkset: #e5d07d;
+  --color-surface-divisor: #eae0b6;
+  --color-surface-offset: #fff0b5;
   --color-outline: #694e3a;
   --color-text: #3b2a1a;
 
@@ -354,9 +357,21 @@ a:focus-visible {
   text-align: center;
 }
 
+/* begin: this is for the dotted-pannel area */
 .import-content {
   width: 100%;
   min-height: 500px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-area {
+  width: 100%;
+  min-height: 0;
+  flex: 1;
 }
 
 .drop-area h1 {
@@ -389,6 +404,37 @@ a:focus-visible {
   outline: 4px solid var(--color-backdrop);
   outline-offset: 4px;
 }
+
+/* player-data table things */
+.players-table table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.players-table th,
+.players-table td {
+  padding: 10px, 12px;
+  border-bottom: 4px solid var(--color-surface-divisor);
+}
+
+.players-table td {
+  font-weight: var(--weight-medium);
+}
+
+
+.row-even {
+  background-color: var(--color-surface-offset);
+}
+
+.row-odd {
+  background-color: var(--color-surface-darkset);
+}
+
+.ghost {
+  background-color: var(--color-disabled);
+}
+
 
 /* text that appears under Choose File when one is selected */
 .file-status {
@@ -529,26 +575,6 @@ a:focus-visible {
 .status-message {
   margin: 12px 4px;
   font-size: 17px;
-}
-
-
-/* let the dotted import area fill the panel. */
-.main-panel.showing-import {
-  display: flex;
-  flex-direction: column;
-}
-
-.main-panel.showing-import .import-content {
-  width: 100%;
-  min-height: 0;
-  flex: 1;
-  display: flex;
-}
-
-.main-panel.showing-import .drop-area {
-  width: 100%;
-  min-height: 0;
-  flex: 1;
 }
 
 /* these rows use the rounded bar style from the reference image. */

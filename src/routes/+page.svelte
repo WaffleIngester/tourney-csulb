@@ -17,8 +17,18 @@
 
   // tsv imports
   import { TextToTSV } from "#lib/utils/tsv-reader.ts";
-  import type { TsvRow } from "#lib/utils/tsv-reader.ts";
+  import { TsvRow } from "#lib/utils/tsv-reader.ts";
+
   import { ColumnType, getTsvError } from "#lib/utils/tsv-validator.ts";
+  import { getMaxTeamSizeForGamemode } from "#lib/utils/gamemode.ts";
+
+  // scored imports
+  import { ScoredTeam } from "#lib/features/scoring/scored-team.ts";
+  import { calculateScores } from "#lib/features/scoring/scoring-actions.ts";
+
+  // views
+  import UnscoredView from "#lib/features/rounds/UnscoredView.svelte";
+  import ScoredView from "#lib/features/rounds/ScoredView.svelte";
   import type { RequiredColumn } from "#lib/utils/tsv-validator.ts";
 
   // gamemode
@@ -111,12 +121,54 @@
   ]);
 
   // round ids are unique and are separate from round array positions.
-  let activeRoundId = $state<number | null>(1);
+  let configs = $state<Config[]>([{ id: 0, killCap: 0, pointsPerKill: 1, pointsKillLeader: 0, pointRanges: [ {maxPlace: 64, points: 1} ]}]);
+  let activeRoundId = $state<number>(0);
   let nextRoundId = $state(2);
   let activeView = $state<ActiveView>("import");
 
+
+  // todo: popups when using invalid gamemode
+  // todo: forces always active round. need more robust way to do this for ANY round and then return the  
+  function getScoredTeamsForRound(roundIndex: number): ScoredTeam[] {
+    if (roundIndex <= -1) {
+      throw new Error("Tried to perform scoring but the given round index is negative. Why?");
+    }
+
+    const round: Round = rounds[roundIndex];
+    if (round === undefined) {
+      throw new Error(`Could not locate a Round at index: ${roundIndex}.`);
+    }
+    if (round.players.length === 0) {
+      console.warn(`Attempted scoring on a round with no players at index ${roundIndex}.`);
+      return [];
+    }
+
+    const config: Config = configs[round.configID];
+    if (config === undefined) {
+      throw new Error(`Could not locate the config for the active round. Search for config @ index ${round.configID}?`)
+    }
+
+    const maxTeamSize: number = getMaxTeamSizeForGamemode(gamemode);
+    let squads: ScoredTeam[];
+    try {
+      squads = calculateScores(maxTeamSize, config, round.players);
+    } catch {
+      // todo: actually handle improper team sizes. for now, this works, I suppose.
+      console.error("Tried scoring for a gamemode with team sizes smaller than those in the provided dataset.");
+      console.error("Teams have been calculated as SQUADS to not throw an error. In the future, one should be clearly notified.");
+      squads = calculateScores(4, config, round.players);
+    }
+    if (squads === null || squads === undefined) {
+      console.error("ya don goofed.");
+      return [];
+    }
+
+    // todo: should have more of a scoring-result which includes any fancy data facts we want.
+    return squads;
+  }
+
   let activeRound = $derived(
-    rounds.find((round) => round.id === activeRoundId) ?? null
+    rounds.find((round) => (round.id - 1) === activeRoundId) ?? null
   );
 
   let activeRoundHasPlayers = $derived(
@@ -184,7 +236,7 @@
   }
 
   function viewLeaderboard() {
-    activeRoundId = null;
+    activeRoundId = -1;
     activeView = "leaderboard";
     status = "";
   }
@@ -352,12 +404,15 @@
   </nav>
 
   <div class="content-layout">
-    <section class="main-panel" class:showing-import={activeView === "import"}>
-      {#if activeView === "import"}
-        <div class="import-content">
-          <div class="drop-area">
-            <div>
-              <h1>Import the /getplayers file</h1>
+    {#if activeView === "scored"}
+      <ScoredView roundId={rounds[activeRoundId].id} squads={getScoredTeamsForRound(activeRoundId)} />
+    {:else if activeView === "unscored"}
+      <UnscoredView roundId={rounds[activeRoundId].id} players={rounds[activeRoundId].players} />
+    {:else if activeView === "import"}
+      <section class="import-panel" aria-label="Import player data">
+        <div class="drop-area">
+          <div class="import-content">
+            <h1 class="import-title">Import the /getplayers file</h1>
 
               <input
                 bind:this={fileInput}
@@ -380,65 +435,57 @@
               </button>
             </div>
           </div>
-        </div>
-      {:else if activeView === "scored"}
-        <section class="scored-panel">
-          <p>scored panel</p>
-        </section>
-      {:else if activeView === "unscored"}
-        <section class="unscored-panel">
-          <p>unscored panel</p>
-        </section>
+      </section>
       {:else if activeView === "config"}
         <section class="config-panel">
           <p>config panel</p>
-        </section>
+      </section>
       {:else}
-        <div class="leaderboard-content">
-          <h1>Tournament Leaderboard</h1>
-          <p class="status-message">
-            sample layout, scores will connect after scoring is ready!
-          </p>
+        <section class="leaderboard-panel">
+          <div class="leaderboard-content">
+            <h1>Tournament Leaderboard</h1>
+            <p class="status-message">
+              sample layout, scores will connect after scoring is ready!
+            </p>
 
-          <div class="leaderboard-table-wrap">
-            <table class="leaderboard-table">
-              <caption class="visually-hidden">
-                Sample tournament leaderboard with team scores by round
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Place</th>
-                  <th scope="col">Team</th>
-                  <th scope="col">Players</th>
-                  <th scope="col">Round 1</th>
-                  <th scope="col">Round 2</th>
-                  <th scope="col">Round 3</th>
-                  <th scope="col">Total Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each sampleLeaderboard as team (team.rank)}
-                  <tr
-                    class:place-first={team.rank === 1}
-                    class:place-second={team.rank === 2}
-                    class:place-third={team.rank === 3}
-                  >
-                    <td class="rank-cell">{team.rank}</td>
-                    <td>{team.name}</td>
-                    <td>{team.players.join(", ")}</td>
-                    {#each team.roundScores as score, index (`${team.rank}-${index}`)}
-                      <td>{score}</td>
-                    {/each}
-                    <td class="points-cell">{team.total}</td>
+            <div class="leaderboard-table-wrap">
+              <table class="leaderboard-table">
+                <caption class="visually-hidden">
+                  Sample tournament leaderboard with team scores by round
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Place</th>
+                    <th scope="col">Team</th>
+                    <th scope="col">Players</th>
+                    <th scope="col">Round 1</th>
+                    <th scope="col">Round 2</th>
+                    <th scope="col">Round 3</th>
+                    <th scope="col">Total Points</th>
                   </tr>
-                {/each}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {#each sampleLeaderboard as team (team.rank)}
+                    <tr
+                      class:place-first={team.rank === 1}
+                      class:place-second={team.rank === 2}
+                      class:place-third={team.rank === 3}
+                    >
+                      <td class="rank-cell">{team.rank}</td>
+                      <td>{team.name}</td>
+                      <td>{team.players.join(", ")}</td>
+                      {#each team.roundScores as score, index (`${team.rank}-${index}`)}
+                        <td>{score}</td>
+                      {/each}
+                      <td class="points-cell">{team.total}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      {/if}
-    </section>
-
+        </section>
+    {/if}
     <aside class="options-panel" aria-labelledby="options-title">
       {#if activeView !== "leaderboard"}
         <h2 id="options-title">Data Options</h2>
