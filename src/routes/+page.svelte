@@ -46,14 +46,6 @@
   // currently-active view being used rn!!
   type ActiveView = "scored" | "unscored" | "import" | "config" | "leaderboard";
 
-  type SampleLeaderboardTeam = {
-    rank: number;
-    name: string;
-    players: string[];
-    roundScores: number[];
-    total: number;
-  };
-
   const viewOptions = [
     { id: "scored", label: "View Scored", requiresPlayers: true },
     { id: "unscored", label: "View Unscored", requiresPlayers: true },
@@ -62,7 +54,7 @@
   ] as const;
   
   const leaderboardOptions = [
-    { id: "export", label: "Export Data", action: console.log(`unimplemented action: export`)}
+    { id: "export", label: "Export Data", action: exportLeaderboard}
   ] as const;
 
   type LeaderboardPlayer = {
@@ -80,7 +72,7 @@
       if (round.players.length === 0) return;
 
       // todo: bandage fix, must solve this when rounds complete. 
-      const squads = getScoredTeamsForRound(roundIndex+1);
+      const squads = getScoredTeamsForRound(roundIndex);
 
       for (const squad of squads) {
         const placementShare =
@@ -152,186 +144,103 @@
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  // these rows are placeholders until the scoring work is ready to connect.
-  const sampleLeaderboard: SampleLeaderboardTeam[] = [
-    {
-      rank: 1,
-      name: "Golden Gooses",
-      players: ["Mochi", "Peach"],
-      roundScores: [42, 38, 51],
-      total: 131
-    },
-    {
-      rank: 2,
-      name: "Drop Bears",
-      players: ["Poppy", "Miso"],
-      roundScores: [40, 44, 39],
-      total: 123
-    },
-    {
-      rank: 3,
-      name: "Tiny Terrors",
-      players: ["Clover", "Biscuit"],
-      roundScores: [36, 41, 37],
-      total: 114
-    },
-    {
-      rank: 4,
-      name: "Cloud Squad",
-      players: ["Nori", "Dumpling"],
-      roundScores: [33, 35, 40],
-      total: 108
-    },
-    {
-      rank: 5,
-      name: "Cactus Crew",
-      players: ["Bean", "Tater"],
-      roundScores: [31, 34, 35],
-      total: 100
-    }
-  ];
-
+  // main app state(s)
+  let activeView = $state<ActiveView>("import");
   let gamemode = $state(Gamemode.Solos);
+
   let status = $state("");
   let pastedOutput = $state("");
   let pasteError = $state("");
 
+  // some modals...
   let resetDialog = $state<HTMLDialogElement | null>(null);
   let roundWarningDialog = $state<HTMLDialogElement | null>(null);
   let pasteDialog = $state<HTMLDialogElement | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
+    
+  // config array.
+  let configs = $state<Config[]>([{ id: 0, killCap: 0, pointsPerKill: 1, pointsKillLeader: 0, pointRanges: [ {maxPlace: 64, points: 1} ]}]);
 
+  // round array.
   let rounds = $state<Round[]>([
     { id: 1, label: "Round 1", configID: 0, players: [] }
   ]);
-  let configs = $state<Config[]>([{ id: 0, killCap: 0, pointsPerKill: 1, pointsKillLeader: 0, pointRanges: [ {maxPlace: 64, points: 1} ]}]);
 
-  // round ids are unique and are separate from round array positions.
-  let activeRoundId = $state<number>(1); // there shouldn't be a NULL round ID.
+  let activeRoundIndex = $state(0); // -1 = LEADERBOARD; 0+ = an actual round in the index.
+  
   let nextRoundId = $state(2);
-  let activeView = $state<ActiveView>("import");
 
-  let activeRound = $derived(
-    rounds.find((round) => round.id === activeRoundId) ?? null
-  );
+  let activeRound: Round | null = $derived( activeRoundIndex === -1 ? null : rounds[activeRoundIndex] );
+  let activeRoundHasPlayers: boolean = $derived(activeRound === null ? false : activeRound.players.length > 0)
+  let isLeaderboard: boolean = $derived( activeRoundIndex === -1 );
 
-  let activeRoundIndex = $derived(
-    rounds.findIndex((round) => round.id === activeRoundId)
-  );
-
-
-  // todo: popups when using invalid gamemode
-  // todo: forces always active round. need more robust way to do this for ANY round and then return the  
-  function getScoredTeamsForRound(roundIndex: number): ScoredTeam[] {
-    if (roundIndex <= -1) {
-      throw new Error("Tried to perform scoring but the given round index is negative. Why?");
+  // change currently-selected round tab based on the given index.
+  function selectRound(index: number): void {
+    if ((index < 0) || (index >= rounds.length)) {
+      throw new Error(`selectRound: invalid round index: ${index}`)
     }
 
-    // TODO: bandage fix LOL!!!
-    const round: Round = rounds[roundIndex - 1];
-    if (round === undefined) {
-      throw new Error(`Could not locate a Round at index: ${roundIndex}.`);
-    }
-    if (round.players.length === 0) {
-      console.warn(`Attempted scoring on a round with no players at index ${roundIndex}.`);
-      return [];
-    }
-
-    const config: Config = configs[round.configID];
-    if (config === undefined) {
-      throw new Error(`Could not locate the config for the active round. Search for config @ index ${round.configID}?`)
-    }
-
-    const maxTeamSize: number = getMaxTeamSizeForGamemode(gamemode);
-    let squads: ScoredTeam[];
-    try {
-      squads = calculateScores(maxTeamSize, config, round.players);
-    } catch {
-      // todo: actually handle improper team sizes. for now, this works, I suppose.
-      console.error("Tried scoring for a gamemode with team sizes smaller than those in the provided dataset.");
-      console.error("Teams have been calculated as SQUADS to not throw an error. In the future, one should be clearly notified.");
-      squads = calculateScores(4, config, round.players);
-    }
-    if (squads === null || squads === undefined) {
-      console.error("ya don goofed.");
-      return [];
-    }
-
-    // todo: should have more of a scoring-result which includes any fancy data facts we want.
-    return squads;
-  }
-
-  let activeRoundHasPlayers = $derived(
-    (activeRound?.players.length ?? 0) > 0
-  );
-
-  function selectRound(round: Round) {
-    activeRoundId = round.id;
-    activeView = round.players.length > 0 ? "scored" : "import";
+    activeRoundIndex = index;
+    activeView = rounds[index].players.length > 0 ? "scored" : "import";
     status = "";
   }
 
-  function addRound() {
+  function addRound(): void {
     const round: Round = {
       id: nextRoundId,
-      label: `Round ${rounds.length + 1}`,
+      label: `Round ${nextRoundId}`,
       configID: 0,
       players: []
     };
 
-    rounds = [...rounds, round];
-    activeRoundId = round.id;
-    activeView = "import";
+    //rounds = [...rounds, round];
+    rounds.push(round);
+    activeRoundIndex = rounds.length -1;
     nextRoundId += 1;
+
+    activeView = "import";
     status = "";
   }
 
   // the last round stays,, shift skips the delete confirmation.
-  function removeRound(id: number, event: MouseEvent) {
+  function removeRound(id: number, event: MouseEvent): void {
     if (rounds.length <= 1) {
       status = "";
       roundWarningDialog?.showModal();
       return;
     }
 
-    if (
-      !event.shiftKey &&
-      !window.confirm("Delete this round and its imported data?")
-    ) {
+    // todo: pretty modal
+    if (!event.shiftKey && !window.confirm("Delete this round and its imported data?")) {
       return;
     }
 
-    const removedIndex = rounds.findIndex((round) => round.id === id);
+    const removeIndex = rounds.findIndex((round) => round.id === id);
+    if (removeIndex === -1) {
+      throw new Error(`removeRound: Could not find a round with ID \"${id}\".`);
+    }
+    
+    // just deletes the round. does **not** shift the round labels.
+    rounds.splice(removeIndex, 1);
 
-    // keep ids stable and renumber the tabs that remain.
-    const remainingRounds = rounds
-      .filter((round) => round.id !== id)
-      .map((round, index) => ({
-        ...round,
-        label: `Round ${index + 1}`
-      }));
-
-    if (activeRoundId === id) {
-      const nextSelectedIndex = Math.min(
-        removedIndex,
-        remainingRounds.length - 1
-      );
-      activeRoundId = remainingRounds[nextSelectedIndex]?.id ?? null;
-      activeView = "import";
+    // --- changing current-round-views ---
+    if (isLeaderboard) {
+      return; // on the leaderboard, so what's it matter to us.
     }
 
-    rounds = remainingRounds;
-    nextRoundId = Math.max(...remainingRounds.map((round) => round.id)) + 1;
-    status = "";
+    if (removeIndex === activeRoundIndex) {
+      selectRound(Math.min(removeIndex, rounds.length-1));
+    } else if (activeRoundIndex > removeIndex) {
+      activeRoundIndex -= 1;
+    }
   }
 
-  function viewLeaderboard() {
-    activeRoundId = -1; // the roundId really shouldn't be null if it is a number.
-    activeView = "leaderboard";
-    status = "";
+  // determine whether the provided Round is the active one or not.
+  function isActiveRound(id: number): boolean {
+    return activeRound?.id === id;
   }
 
-  function changeActiveView(view: ActiveView) {
+  function changeActiveView(view: ActiveView):void {
     if ((view === "scored" || view === "unscored") && !activeRoundHasPlayers) {
       activeView = "import";
       status = "Import player data for this round first.";
@@ -342,19 +251,27 @@
     status = "";
   }
 
+  function viewLeaderboard(): void {
+    activeRoundIndex = -1;
+    activeView = "leaderboard";
+    status = "";
+  }
+
   function openResetDialog() {
     resetDialog?.showModal();
   }
 
   function resetTournament() {
     gamemode = Gamemode.Solos;
+    activeView = "import";
+    
+    rounds = [{ id: 1, label: "Round 1", configID: 0, players: [] }];
+    activeRoundIndex = 0;
+    nextRoundId = 1;
+
     status = "";
     pastedOutput = "";
     pasteError = "";
-    rounds = [{ id: 1, label: "Round 1", configID: 0, players: [] }];
-    activeRoundId = 1;
-    nextRoundId = 2;
-    activeView = "import";
 
     if (fileInput) {
       fileInput.value = "";
@@ -426,6 +343,34 @@
       status = `Could not read ${file.name}. Please choose a text file.`;
     }
   }
+
+  // todo: popups when using invalid gamemode
+  function getScoredTeamsForRound(roundIndex: number): ScoredTeam[] {
+    if ((roundIndex < 0) || (roundIndex >= rounds.length)) {
+      throw new Error(`getScoredTeamsForRound: invalid round index: ${roundIndex}`)
+    }
+
+    const round: Round = rounds[roundIndex];
+    if (round.players.length === 0) {
+      console.warn(`Attempted scoring on a round with no players at index ${roundIndex}.`);
+      return [];
+    }
+
+    const config: Config = configs[round.configID];
+    if (config === undefined) {
+      throw new Error(`Could not locate config \"${round.configID}\"."`)
+    }
+
+    const maxTeamSize: number = getMaxTeamSizeForGamemode(gamemode);
+    try {
+      return calculateScores(maxTeamSize, config, round.players);
+    } catch {
+      // todo: actually handle improper team sizes. for now, this works, I suppose.
+      console.error("Tried scoring for a gamemode with team sizes smaller than those in the provided dataset.");
+      console.error("Teams have been calculated as SQUADS to not throw an error. In the future, one should be clearly notified.");
+      return calculateScores(4, config, round.players);
+    }
+  }
 </script>
 
 <svelte:head>
@@ -458,13 +403,13 @@
     </button>
 
     <div class="round-tabs" aria-label="Rounds">
-      {#each rounds as round (round.id)}
-        <div class="round-tab" class:active={activeRoundId === round.id}>
+      {#each rounds as round, i (round.id)}
+        <div class="round-tab" class:active={isActiveRound(round.id)}>
           <button
             class="round-select"
             type="button"
-            aria-pressed={activeRoundId === round.id}
-            onclick={() => selectRound(round)}
+            aria-pressed={isActiveRound(round.id)}
+            onclick={() => selectRound(i)}
           >
             {round.label}
           </button>
@@ -495,9 +440,9 @@
 
   <div class="content-layout">
     {#if activeView === "scored"}
-      <ScoredView roundId={activeRoundId} squads={getScoredTeamsForRound(activeRoundId)} />
+      <ScoredView roundId={rounds[activeRoundIndex].id} squads={getScoredTeamsForRound(activeRoundIndex)} />
     {:else if activeView === "unscored"}
-      <UnscoredView roundId={activeRoundId} players={rounds[activeRoundId-1].players} />
+      <UnscoredView roundId={rounds[activeRoundIndex].id} players={rounds[activeRoundIndex].players} />
     {:else if activeView === "import"}
       <section class="import-panel" aria-label="Import player data">
         <div class="drop-area">
