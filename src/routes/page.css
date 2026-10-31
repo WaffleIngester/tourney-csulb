@@ -406,6 +406,11 @@ a:focus-visible {
 }
 
 /* player-data table things */
+.players-table .table-container {
+  max-height: 450px;
+  overflow-y: auto;
+}
+
 .players-table table {
   width: 100%;
   border-collapse: collapse;
@@ -416,6 +421,11 @@ a:focus-visible {
 .players-table td {
   padding: 10px, 12px;
   border-bottom: 4px solid var(--color-surface-divisor);
+}
+
+.players-table th,
+.players-table thead {
+  position: sticky;
 }
 
 .players-table td {
