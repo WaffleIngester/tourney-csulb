@@ -98,6 +98,22 @@
     onUpdateConfig({ ...currentConfig, [field]: number });
   }
 
+    function normalizePointRanges(ranges: PointRange[]): PointRange[] {
+        const ordered = [...ranges].sort((a, b) => a.maxPlace - b.maxPlace);
+        const normalized: PointRange[] = [];
+
+        for (const range of ordered) {
+            const previous = normalized[normalized.length - 1];
+
+            if (previous && previous.points === range.points) {
+                previous.maxPlace = range.maxPlace;
+            } else {
+                normalized.push({ ...range });
+            }
+        }
+        return normalized;
+    }
+
   function updateRange(
     index: number,
     field: keyof PointRange,
@@ -108,8 +124,10 @@
     const number = Number(value);
     if (!Number.isFinite(number)) return;
 
-    const pointRanges = currentConfig.pointRanges.map((range, rangeIndex) =>
-      rangeIndex === index ? { ...range, [field]: number } : range
+    const pointRanges = normalizePointRanges(
+        currentConfig.pointRanges.map((range, rangeIndex) =>
+            rangeIndex === index ? { ...range, [field]: number } : range
+        )
     );
 
     onUpdateConfig({ ...currentConfig, pointRanges });
@@ -162,13 +180,14 @@
   function removeRange(index: number): void {
     if (!currentConfig || currentConfig.pointRanges.length <= 1) return;
 
-    onUpdateConfig({
-      ...currentConfig,
-      pointRanges: currentConfig.pointRanges.filter(
+    const pointRanges = normalizePointRanges(
+        currentConfig.pointRanges.filter(
         (_, rangeIndex) => rangeIndex !== index
-      )
-    });
-  }
+    )
+);
+
+    onUpdateConfig({ ...currentConfig, pointRanges });
+    }
 </script>
 
 <section class="config-panel">
