@@ -1038,3 +1038,307 @@ a:focus-visible {
     white-space: normal;
   }
 }
+
+ /* config editor layout */
+  .config-panel {
+    display: grid;
+    grid-template-columns: minmax(175px, 0.42fr) minmax(0, 2fr);
+    align-items: stretch;
+    gap: 12px;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
+
+  .config-selector,
+  .config-settings {
+    min-width: 0;
+    border: 5px solid var(--color-outline);
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .config-selector {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 600px;
+    overflow: hidden;
+    background: var(--color-surface-offset);
+  }
+
+  .config-selector .add-entry,
+  .item-entry {
+    min-height: 64px;
+    border: 5px solid var(--color-outline);
+    border-radius: 16px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 21px;
+    font-weight: var(--weight-semi-bold);
+  }
+
+  .config-selector .add-entry:hover,
+  .item-entry:hover {
+    background: var(--color-selected-critical);
+  }
+
+  .item-entry.selected {
+    background: var(--color-focus);
+    font-weight: var(--weight-bold);
+  }
+
+  .config-options {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    margin: 10px 0 0;
+    padding: 0 4px 0 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .config-options li {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .item-entry {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 44px 8px 8px;
+  }
+
+  .item-delete {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    display: grid;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    place-items: center;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-outline);
+    font-size: 22px;
+    font-weight: var(--weight-regular);
+    line-height: 1;
+  }
+
+  .item-delete:hover {
+    background: transparent;
+    color: var(--color-warn);
+  }
+
+  .config-primary-settings {
+    display: grid;
+    grid-template-columns: minmax(230px, 0.82fr) minmax(0, 1.25fr);
+    align-items: stretch;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* let the placement card share the settings grid row */
+  .config-placements {
+    display: contents;
+  }
+
+  .config-settings {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--color-surface);
+  }
+
+  .config-settings h1 {
+    margin: 0 0 12px;
+    color: var(--color-text);
+    font-size: clamp(24px, 2vw, 32px);
+    line-height: 1.1;
+  }
+
+  .config-placements .config-settings {
+    background: var(--color-surface-offset);
+  }
+
+  .config-general,
+  .config-placement-ranges {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .config-general li {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .config-general li span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .config-general h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: var(--weight-semi-bold);
+  }
+
+  .config-general input,
+  .config-placement-ranges input {
+    min-height: 42px;
+    padding: 4px 8px;
+    border: 4px solid var(--color-outline);
+    border-radius: 12px;
+    background: white;
+    color: var(--color-text);
+    font-size: 19px;
+  }
+
+  .config-general input {
+    width: 100%;
+    max-width: 110px;
+  }
+
+  .config-general svg,
+  .config-general img {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+  }
+
+  .config-general .help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: 0;
+    background: transparent;
+    line-height: 0;
+  }
+
+  .config-placement-ranges {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .config-placement-ranges li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+  }
+
+  .config-placement-ranges input {
+    width: 78px;
+  }
+
+  .config-placement-ranges button {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--color-warn);
+    color: white;
+    font-size: 16px;
+    font-weight: var(--weight-bold);
+  }
+
+  .config-settings > .add-entry {
+    align-self: center;
+    min-height: 54px;
+    margin-top: 10px;
+    padding: 8px 18px;
+    border: 5px solid var(--color-outline);
+    border-radius: 15px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 20px;
+    font-weight: var(--weight-semi-bold);
+  }
+
+  .config-settings > .add-entry:hover {
+    background: var(--color-selected-critical);
+  }
+
+  .config-placements .config-settings > p {
+    margin: 18px 0 0;
+    color: var(--color-warn);
+    font-size: 19px;
+    font-weight: var(--weight-bold);
+    text-align: center;
+  }
+
+  /* match the round scrollbar thumb and hide its track */
+  .config-options,
+  .config-placement-ranges {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-text) transparent;
+  }
+
+  .config-options::-webkit-scrollbar,
+  .config-placement-ranges::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .config-options::-webkit-scrollbar-track,
+  .config-placement-ranges::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .config-options::-webkit-scrollbar-thumb,
+  .config-placement-ranges::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--color-text);
+  }
+
+  .config-options::-webkit-scrollbar-thumb:hover,
+  .config-placement-ranges::-webkit-scrollbar-thumb:hover {
+    background: var(--color-outline);
+  }
+
+  .config-options::-webkit-scrollbar-button,
+  .config-placement-ranges::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  .config-errors {
+    margin: 18px 0 0;
+    padding: 0;
+    color: var(--color-warn);
+    font-size: 19px;
+    font-weight: var(--weight-bold);
+    text-align: center;
+    list-style: none;
+  }
+
+  @media (max-width: 1100px) {
+    .config-primary-settings {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 650px) {
+    .config-panel {
+      grid-template-columns: 1fr;
+    }
+
+    .config-selector {
+      max-height: 260px;
+    }
+  }
