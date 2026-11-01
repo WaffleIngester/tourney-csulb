@@ -601,9 +601,6 @@ function updateConfig(updatedConfig: Config): void {
             {option.label}
           </button>
           {/each}
-        <p class="status-message">
-          export will be available when real leaderboard scores are connected.
-        </p>
       {/if}
 
       {#if status}
