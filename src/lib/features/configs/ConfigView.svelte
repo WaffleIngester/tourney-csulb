@@ -146,35 +146,14 @@
             return;
         }
 
-        let widestIndex = -1;
-        let widestStart = 1;
-        let widestWidth = 1;
-
-        for (let index = 0; index < ranges.length; index += 1) {
-            const start = index === 0 ? 1 : ranges[index - 1].maxPlace + 1;
-            const width = ranges[index].maxPlace - start + 1;
-
-            if (width > widestWidth) {
-                widestIndex = index;
-                widestStart = start;
-                widestWidth = width;
-            }
+        if (ranges.length > 1) {
+            const prev_last_range = ranges[ranges.length - 2];
+            ranges.splice(ranges.length - 1, 0, {maxPlace: (prev_last_range.maxPlace + 1), points: 1})
+        } else {
+            ranges.splice(0, 0, {maxPlace: 1, points: 1});
         }
 
-        if (widestIndex === -1) return;
-
-        // split the widest range while keeping its current point value.
-        const existingRange = ranges[widestIndex];
-        const splitAt = widestStart + Math.floor(widestWidth / 2) - 1;
-        const pointRanges = [...ranges];
-
-        pointRanges[widestIndex] = { ...existingRange, maxPlace: splitAt };
-        pointRanges.splice(widestIndex + 1, 0, {
-            maxPlace: existingRange.maxPlace,
-            points: existingRange.points,
-        });
-
-        onUpdateConfig({ ...currentConfig, pointRanges });
+        onUpdateConfig({ ...currentConfig, pointRanges: ranges });
     }
 
     function removeRange(index: number): void {
