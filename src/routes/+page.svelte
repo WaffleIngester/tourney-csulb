@@ -182,7 +182,17 @@
     }
 
     activeRoundIndex = index;
-    activeView = rounds[index].players.length > 0 ? "scored" : "import";
+
+    if (rounds[index].players.length > 0) {
+      if (activeView === "leaderboard") {
+        activeView = "scored";
+      }
+      // otherwise, leave it unchanged. allow quickly switching between same round-view types!
+    } else if ((activeView === "scored") || (activeView === "unscored")) {
+      // tried to view unscored/ scored for an empty round...
+      // it's OK to go between import/ config for an empty round, but not from a [non-empty] scored -> [empty] scored.
+      activeView = "import";
+    }
     status = "";
   }
 
