@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img" aria-labelledby="info-title">
+  <title id="info-title">More information</title>
+  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+  <path d="M12 10.8v5.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="12" cy="7.6" r="1" fill="currentColor"/>
+</svg>

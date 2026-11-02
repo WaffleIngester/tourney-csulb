@@ -27,6 +27,7 @@
   import UnscoredView from "#lib/features/rounds/UnscoredView.svelte";
   import ScoredView from "#lib/features/rounds/ScoredView.svelte";
   import type { RequiredColumn } from "#lib/utils/tsv-validator.ts";
+  import ConfigView from "#lib/features/configs/ConfigView.svelte";
 
   // gamemode
   import { Gamemode } from "#lib/utils/gamemode.ts";
@@ -181,9 +182,79 @@
     }
 
     activeRoundIndex = index;
-    activeView = rounds[index].players.length > 0 ? "scored" : "import";
+
+    if (rounds[index].players.length > 0) {
+      if (activeView === "leaderboard") {
+        activeView = "scored";
+      }
+      // otherwise, leave it unchanged. allow quickly switching between same round-view types!
+    } else if ((activeView === "scored") || (activeView === "unscored")) {
+      // tried to view unscored/ scored for an empty round...
+      // it's OK to go between import/ config for an empty round, but not from a [non-empty] scored -> [empty] scored.
+      activeView = "import";
+    }
     status = "";
   }
+
+  function addConfig(): void {
+    const config: Config = {
+      id: configs.length,
+      killCap: 0,
+      pointsPerKill: 1,
+      pointsKillLeader: 0,
+      pointRanges: [{ maxPlace: 64, points: 1 }]
+    };
+
+    configs.push(config);
+
+    if (activeRound) {
+      rounds[activeRoundIndex] = { ...activeRound, configID: config.id };
+    }
+
+    activeView = "config";
+    status = "";
+  }
+
+  function selectConfig(configId: number): void {
+    if (!activeRound || !configs[configId]) return;
+
+    rounds[activeRoundIndex] = { ...activeRound, configID: configId };
+    status = "";
+  }
+
+  function deleteConfig(configId: number): void {
+    if (configs.length <= 1) {
+      status = "You must keep at least one config.";
+      return;
+    }
+
+    const removeIndex = configs.findIndex((config) => config.id === configId);
+    if (removeIndex === -1) return;
+
+    if (!window.confirm(`Delete Config ${configId + 1}?`)) return;
+
+    rounds = rounds.map((round) => ({
+      ...round,
+      configID:
+        round.configID === removeIndex
+          ? 0
+          : round.configID > removeIndex
+            ? round.configID - 1
+            : round.configID
+    }));
+
+    configs = configs
+      .filter((_, index) => index !== removeIndex)
+      .map((config, index) => ({ ...config, id: index }));
+
+    status = "";
+  }
+
+function updateConfig(updatedConfig: Config): void {
+  configs = configs.map((config) =>
+    config.id === updatedConfig.id ? updatedConfig : config
+  );
+}
 
   function addRound(): void {
     const round: Round = {
@@ -266,6 +337,15 @@
     activeView = "import";
     
     rounds = [{ id: 1, label: "Round 1", configID: 0, players: [] }];
+    configs = [
+      {
+        id: 0,
+        killCap: 0,
+        pointsPerKill: 1,
+        pointsKillLeader: 0,
+        pointRanges: [{ maxPlace: 64, points: 1 }]
+      }
+    ];
     activeRoundIndex = 0;
     nextRoundId = 1;
 
@@ -472,9 +552,14 @@
           </div>
       </section>
       {:else if activeView === "config"}
-        <section class="config-panel">
-          <p>config panel</p>
-      </section>
+        <ConfigView
+          configs={configs}
+          activeRound={activeRound}
+          onAddConfig={addConfig}
+          onSelectConfig={selectConfig}
+          onDeleteConfig={deleteConfig}
+          onUpdateConfig={updateConfig}
+        />
       {:else}
         <section class="leaderboard-panel">
           <div class="leaderboard-content">
@@ -526,9 +611,6 @@
             {option.label}
           </button>
           {/each}
-        <p class="status-message">
-          export will be available when real leaderboard scores are connected.
-        </p>
       {/if}
 
       {#if status}
