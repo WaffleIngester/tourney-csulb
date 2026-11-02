@@ -1,38 +1,34 @@
-## Info
-Below is a part of the default README that is generated when making a Svelte project.
+# Tourney Scorer
+A web-based scoring utility for [Super Animal Royale](https://animalroyale.com/) tournaments built with [Svelte](https://svelte.dev/).
+> **Note**: This project is still in the early stages of development. As such, its primarily intended for local development/ testing. Expect things to break.
 
-I removed some pieces, but hopefully this is helpful as is.
+## Getting Started
+### Prerequisites
+- Git
+- Node.js 24.21.0
+- nvm
 
-As this project is updated, this README will gradually be expanded so it's a bit more obvs
----------
+## Installation & Running
+### Cloning Repository
+Once you have selected a destination folder...
 
-## Install & Run
+1. Clone the repository:
+```sh
+git clone https://github.com/WaffleIngester/tourney-csulb.git
+```
+
+2. Install and/ or activate the required Node.js version:
+```sh
 nvm install 24.21.0
 nvm use 24.21.0
+```
+
+3. Install the dependencies:
+```sh
 npm ci
-npm run dev
-
-
-
-
-## Adding features
-
-Add features to your project with `sv add`:
-
-```sh
-npx sv add
 ```
 
-For example, to add Tailwind CSS:
-
-```sh
-npx sv add tailwindcss
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
+### Running the Development Server
 ```sh
 npm run dev
 
@@ -40,14 +36,13 @@ npm run dev
 npm run dev -- --open
 ```
 
-## Building
-
-To create a production version of your app:
-
+### Building
+To create a production build:
 ```sh
 npm run build
 ```
 
-You can preview the production build with `npm run preview`.
+## Sample Data
+The `samples/` folder contains sample data used for testing supported scenarios.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+See `samples/README.md` for more information.
